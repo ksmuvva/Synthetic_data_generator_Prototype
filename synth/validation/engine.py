@@ -319,7 +319,7 @@ class ValidationEngine:
             ref_series = reference[col].dropna()
             syn_series = synthetic[col].dropna()
 
-            if pd.api.types.is_numeric_dtype(ref_series):
+            if pd.api.types.is_numeric_dtype(ref_series) and not pd.api.types.is_bool_dtype(ref_series):
                 ref_min = ref_series.min()
                 ref_max = ref_series.max()
                 syn_min = syn_series.min()

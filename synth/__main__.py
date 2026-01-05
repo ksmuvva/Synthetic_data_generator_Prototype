@@ -49,7 +49,7 @@ def main(
 
 
 # Import subcommands
-from synth.cli import init, learn, generate, validate, inspect, export
+from synth.cli import init, learn, generate, validate, inspect, export, agent
 
 # Register subcommands
 app.add_typer(init.app, name="init")
@@ -58,6 +58,7 @@ app.add_typer(generate.app, name="generate")
 app.add_typer(validate.app, name="validate")
 app.add_typer(inspect.app, name="inspect")
 app.add_typer(export.app, name="export")
+app.add_typer(agent.app, name="agent")
 
 
 # Default command when no subcommand is given
@@ -66,7 +67,7 @@ def help_command():
     """Show help information."""
     console.print("[bold cyan]Synth[/bold cyan] - Synthetic Data Generator AI Agent\n")
     console.print("[bold]Common commands:[/bold]")
-    console.print("  synth init [name]       Initialize a new project")
+    console.print("  synth agent             Interactive AI agent mode")
     console.print("  synth learn             Extract patterns from data")
     console.print("  synth generate          Generate synthetic data")
     console.print("  synth validate          Validate synthetic data quality")

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 import json
 import hashlib
+import numpy as np
 
 from synth.patterns.schema import Schema, Field, FieldType
 from synth.patterns.statistical import (
@@ -166,11 +167,17 @@ class PatternStorage:
     def _json_serializer(self, obj: Any) -> Any:
         """Custom JSON serializer for special types."""
         if isinstance(obj, FieldType):
-            return str(obj)
+            return obj.value
         if isinstance(obj, DistributionType):
-            return str(obj)
+            return obj.value
         if isinstance(obj, (datetime,)):
             return obj.isoformat()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     def _validate_pattern(self, pattern: Pattern) -> None:
@@ -253,7 +260,7 @@ def _serialize_schema(schema: Schema) -> dict:
         "fields": [
             {
                 "name": f.name,
-                "type": str(f.type),
+                "type": f.type.value,
                 "nullable": f.nullable,
                 "unique": f.unique,
                 "null_count": f.null_count,
@@ -282,7 +289,7 @@ def _serialize_numeric_pattern(pattern: NumericPattern) -> dict:
     return {
         "field_name": pattern.field_name,
         "distribution": {
-            "dist_type": str(pattern.distribution.dist_type),
+            "dist_type": pattern.distribution.dist_type.value,
             "params": pattern.distribution.params,
             "log_likelihood": pattern.distribution.log_likelihood,
             "aic": pattern.distribution.aic,
@@ -314,7 +321,7 @@ def _serialize_string_pattern(pattern: StringPattern) -> dict:
         "max_length": pattern.max_length,
         "avg_length": pattern.avg_length,
         "length_distribution": {
-            "dist_type": str(pattern.length_distribution.dist_type),
+            "dist_type": pattern.length_distribution.dist_type.value,
             "params": pattern.length_distribution.params,
         },
         "common_prefixes": pattern.common_prefixes,

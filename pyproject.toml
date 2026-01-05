@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "synth-agent"
+name = "synth"
 version = "0.1.0"
 description = "AI-powered synthetic data generator with CLI interface"
 authors = ["ksmuvva <ksmuvva@github.com>"]
@@ -23,7 +23,7 @@ synth = "synth.__main__:cli"
 python = "^3.11"
 
 # CLI & UI
-typer = {extras = ["all"], version = "^0.12.0"}
+typer = "^0.12.0"
 rich = "^13.7.0"
 questionary = "^2.0.0"
 
@@ -32,6 +32,9 @@ pandas = "^2.2.0"
 polars = "^0.20.0"
 pyarrow = "^15.0.0"
 openpyxl = "^3.1.0"
+pdfplumber = "^0.11.0"
+chardet = "^5.2.0"
+python-docx = "^1.1.0"
 
 # Statistical & ML
 numpy = "^1.26.0"
@@ -46,9 +49,13 @@ pydantic = "^2.6.0"
 pyyaml = "^6.0.1"
 tinydb = "^4.8.0"
 
-# NLP & Semantic (for Phase 2)
-# spacy = "^3.7.0"
-# anthropic = "^0.18.0"
+# Output Generation
+reportlab = "^4.0.0"
+
+# LLM Providers for AI Agent
+anthropic = "^0.18.0"
+openai = "^1.12.0"
+google-generativeai = "^0.5.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
