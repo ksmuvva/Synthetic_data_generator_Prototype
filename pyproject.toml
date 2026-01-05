@@ -1,0 +1,95 @@
+[tool.poetry]
+name = "synth-agent"
+version = "0.1.0"
+description = "AI-powered synthetic data generator with CLI interface"
+authors = ["ksmuvva <ksmuvva@github.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/ksmuvva/Synthetic_data_generator_Prototype"
+keywords = ["synthetic-data", "data-generation", "cli", "machine-learning", "privacy"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Data Scientists",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+]
+
+[tool.poetry.scripts]
+synth = "synth.__main__:cli"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# CLI & UI
+typer = {extras = ["all"], version = "^0.12.0"}
+rich = "^13.7.0"
+questionary = "^2.0.0"
+
+# Data Processing
+pandas = "^2.2.0"
+polars = "^0.20.0"
+pyarrow = "^15.0.0"
+openpyxl = "^3.1.0"
+
+# Statistical & ML
+numpy = "^1.26.0"
+scipy = "^1.12.0"
+scikit-learn = "^1.4.0"
+
+# Fake Data Generation
+faker = "^24.0.0"
+
+# Configuration & Storage
+pydantic = "^2.6.0"
+pyyaml = "^6.0.1"
+tinydb = "^4.8.0"
+
+# NLP & Semantic (for Phase 2)
+# spacy = "^3.7.0"
+# anthropic = "^0.18.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+black = "^24.0.0"
+ruff = "^0.2.0"
+mypy = "^1.8.0"
+pre-commit = "^3.6.0"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.5.0"
+mkdocs-material = "^9.5.0"
+mkdocstrings = "^0.24.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# Tool configurations
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=synth --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["synth"]
+omit = ["*/tests/*"]
