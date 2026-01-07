@@ -51,6 +51,7 @@ class ValidationResult:
     schema_score: float = 1.0
     statistical_score: float = 1.0
     constraint_score: float = 1.0
+    correlation_score: float = 1.0
 
     # Recommendations
     recommendations: list[str] = field(default_factory=list)
@@ -110,12 +111,19 @@ class ValidationEngine:
         )
         test_results.extend(constraint_results)
 
+        # 4. Correlation validation
+        correlation_results, correlation_score = self._validate_correlations(
+            synthetic, reference
+        )
+        test_results.extend(correlation_results)
+
         # Compute overall score
-        weights = {"schema": 0.25, "statistical": 0.50, "constraint": 0.25}
+        weights = {"schema": 0.20, "statistical": 0.45, "constraint": 0.20, "correlation": 0.15}
         overall_score = (
             schema_score * weights["schema"]
             + stat_score * weights["statistical"]
             + constraint_score * weights["constraint"]
+            + correlation_score * weights["correlation"]
         )
 
         # Determine status
@@ -136,6 +144,7 @@ class ValidationEngine:
             schema_score=schema_score,
             statistical_score=stat_score,
             constraint_score=constraint_score,
+            correlation_score=correlation_score,
             recommendations=recommendations,
         )
 
@@ -360,6 +369,54 @@ class ValidationEngine:
                 )
 
         return results, max(0.0, score)
+
+    def _validate_correlations(
+        self, synthetic: pd.DataFrame, reference: pd.DataFrame
+    ) -> tuple[list[TestResult], float]:
+        """Validate correlation preservation."""
+        results = []
+        score = 1.0
+
+        # Get numeric columns
+        numeric_cols = reference.select_dtypes(include=[np.number]).columns.tolist()
+
+        if len(numeric_cols) < 2:
+            # Not enough numeric columns for correlation validation
+            return results, 1.0
+
+        # Compute correlation matrices
+        ref_corr = reference[numeric_cols].corr()
+        syn_corr = synthetic[numeric_cols].corr()
+
+        # Compute mean absolute difference between correlation matrices
+        corr_diff = np.abs(ref_corr - syn_corr).mean().mean()
+
+        # Score based on correlation difference
+        # Lower difference is better - max acceptable difference is 0.2
+        corr_score = max(0.0, 1.0 - (corr_diff / 0.2))
+
+        if corr_score >= 0.8:
+            status = ValidationStatus.PASS
+        elif corr_score >= 0.6:
+            status = ValidationStatus.WARNING
+        else:
+            status = ValidationStatus.FAIL
+
+        results.append(
+            TestResult(
+                test_name="correlation_preservation",
+                status=status,
+                metric=corr_score,
+                threshold=0.8,
+                message=f"Correlation matrix difference: {corr_diff:.4f}",
+                details={
+                    "reference_correlation": ref_corr.to_dict(),
+                    "synthetic_correlation": syn_corr.to_dict(),
+                },
+            )
+        )
+
+        return results, corr_score
 
     def _generate_recommendations(
         self, test_results: list[TestResult]

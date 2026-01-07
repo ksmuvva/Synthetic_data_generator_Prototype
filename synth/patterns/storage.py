@@ -49,6 +49,12 @@ class Pattern:
     categorical_patterns: dict[str, dict] = field(default_factory=dict)
     string_patterns: dict[str, dict] = field(default_factory=dict)
 
+    # NEW: Correlation patterns for multivariate generation
+    correlation_patterns: Optional[dict] = None
+
+    # NEW: Relational patterns for multi-table generation
+    relational_patterns: Optional[dict] = None
+
     # Metadata
     quality_metrics: dict[str, float] = field(default_factory=dict)
     version: str = "1.0"
@@ -136,7 +142,7 @@ class PatternStorage:
 
     def _serialize_pattern(self, pattern: Pattern) -> dict[str, Any]:
         """Serialize pattern to dict for JSON storage."""
-        return {
+        serialized = {
             "pattern_id": pattern.pattern_id,
             "source_files": pattern.source_files,
             "learned_at": pattern.learned_at,
@@ -149,6 +155,16 @@ class PatternStorage:
             "version": pattern.version,
         }
 
+        # Add correlation patterns if present
+        if pattern.correlation_patterns:
+            serialized["correlation_patterns"] = pattern.correlation_patterns
+
+        # Add relational patterns if present
+        if pattern.relational_patterns:
+            serialized["relational_patterns"] = pattern.relational_patterns
+
+        return serialized
+
     def _deserialize_pattern(self, data: dict[str, Any]) -> Pattern:
         """Deserialize dict to Pattern object."""
         return Pattern(
@@ -160,6 +176,8 @@ class PatternStorage:
             numeric_patterns=data.get("numeric_patterns", {}),
             categorical_patterns=data.get("categorical_patterns", {}),
             string_patterns=data.get("string_patterns", {}),
+            correlation_patterns=data.get("correlation_patterns"),
+            relational_patterns=data.get("relational_patterns"),
             quality_metrics=data.get("quality_metrics", {}),
             version=data.get("version", "1.0"),
         )
@@ -178,6 +196,8 @@ class PatternStorage:
             return int(obj)
         if isinstance(obj, np.floating):
             return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     def _validate_pattern(self, pattern: Pattern) -> None:

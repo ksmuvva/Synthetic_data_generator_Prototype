@@ -8,7 +8,15 @@
       "Bash(git commit:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm install:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell:*)",
+      "Bash(pip install:*)",
+      "Bash(chcp:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

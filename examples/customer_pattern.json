@@ -1,0 +1,431 @@
+{
+  "pattern_id": "customer_pattern",
+  "source_files": [
+    "sample_customers.csv"
+  ],
+  "learned_at": "2026-01-05T16:51:49.581869",
+  "schema": {
+    "row_count": 100,
+    "fields": [
+      {
+        "name": "customer_id",
+        "type": "string",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": null,
+        "std": null,
+        "min_value": null,
+        "max_value": null,
+        "median": null,
+        "quartiles": null,
+        "value_counts": null,
+        "mode": null,
+        "min_length": 13,
+        "max_length": 13,
+        "avg_length": 13.0,
+        "sample_values": [
+          "CUST-00000001",
+          "CUST-00000002",
+          "CUST-00000003",
+          "CUST-00000004",
+          "CUST-00000005"
+        ]
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": null,
+        "std": null,
+        "min_value": null,
+        "max_value": null,
+        "median": null,
+        "quartiles": null,
+        "value_counts": null,
+        "mode": null,
+        "min_length": 10,
+        "max_length": 12,
+        "avg_length": 10.92,
+        "sample_values": [
+          "Customer_1",
+          "Customer_2",
+          "Customer_3",
+          "Customer_4",
+          "Customer_5"
+        ]
+      },
+      {
+        "name": "age",
+        "type": "integer",
+        "nullable": false,
+        "unique": false,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 51,
+        "mean": 50.27,
+        "std": 19.176403323992865,
+        "min_value": 19.0,
+        "max_value": 79.0,
+        "median": 51.5,
+        "quartiles": [
+          34.75,
+          51.5,
+          68.0
+        ],
+        "value_counts": null,
+        "mode": null,
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          56,
+          69,
+          46,
+          32,
+          60
+        ]
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": null,
+        "std": null,
+        "min_value": null,
+        "max_value": null,
+        "median": null,
+        "quartiles": null,
+        "value_counts": null,
+        "mode": null,
+        "min_length": 21,
+        "max_length": 23,
+        "avg_length": 21.92,
+        "sample_values": [
+          "customer1@example.com",
+          "customer2@example.com",
+          "customer3@example.com",
+          "customer4@example.com",
+          "customer5@example.com"
+        ]
+      },
+      {
+        "name": "salary",
+        "type": "integer",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": 75524.14,
+        "std": 24663.952326094008,
+        "min_value": 12531.0,
+        "max_value": 141400.0,
+        "median": 74383.5,
+        "quartiles": [
+          57337.75,
+          74383.5,
+          92727.25
+        ],
+        "value_counts": null,
+        "mode": null,
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          92459,
+          70709,
+          52320,
+          104715,
+          94638
+        ]
+      },
+      {
+        "name": "department",
+        "type": "categorical",
+        "nullable": false,
+        "unique": false,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 4,
+        "mean": null,
+        "std": null,
+        "min_value": null,
+        "max_value": null,
+        "median": null,
+        "quartiles": null,
+        "value_counts": {
+          "Engineering": 37,
+          "Sales": 29,
+          "Marketing": 25,
+          "HR": 9
+        },
+        "mode": "Engineering",
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          "HR",
+          "Engineering",
+          "Sales",
+          "Sales",
+          "Marketing"
+        ]
+      },
+      {
+        "name": "join_date",
+        "type": "datetime",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": null,
+        "std": null,
+        "min_value": "2020-01-01",
+        "max_value": "2020-04-09",
+        "median": null,
+        "quartiles": null,
+        "value_counts": null,
+        "mode": null,
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          "2020-01-01",
+          "2020-01-02",
+          "2020-01-03",
+          "2020-01-04",
+          "2020-01-05"
+        ]
+      },
+      {
+        "name": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "unique": false,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 2,
+        "mean": null,
+        "std": null,
+        "min_value": null,
+        "max_value": null,
+        "median": null,
+        "quartiles": null,
+        "value_counts": {
+          "true": 78,
+          "false": 22
+        },
+        "mode": null,
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          true,
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "name": "performance_score",
+        "type": "float",
+        "nullable": false,
+        "unique": true,
+        "null_count": 0,
+        "null_percentage": 0.0,
+        "unique_count": 100,
+        "mean": 5.753697282521198,
+        "std": 2.4189670685941596,
+        "min_value": 1.3506681907921028,
+        "max_value": 9.963381178272964,
+        "median": 5.922494440358843,
+        "quartiles": [
+          3.8988837135248646,
+          5.922494440358843,
+          7.6397847193459025
+        ],
+        "value_counts": null,
+        "mode": null,
+        "min_length": null,
+        "max_length": null,
+        "avg_length": null,
+        "sample_values": [
+          6.633457030914156,
+          8.383841593941412,
+          6.863362946720092,
+          2.8601592388907084,
+          3.465650145890204
+        ]
+      }
+    ]
+  },
+  "row_count": 100,
+  "numeric_patterns": {
+    "age": {
+      "field_name": "age",
+      "distribution": {
+        "dist_type": "uniform",
+        "params": [
+          19.0,
+          60.0
+        ],
+        "log_likelihood": -409.4344562222099,
+        "aic": 822.8689124444198,
+        "ks_statistic": 0.08333333333333337,
+        "ks_pvalue": 0.46610905150286264
+      },
+      "outlier_method": "iqr",
+      "outlier_threshold": 3.0,
+      "has_outliers": false,
+      "outlier_bounds": [
+        -15.125,
+        117.875
+      ]
+    },
+    "salary": {
+      "field_name": "salary",
+      "distribution": {
+        "dist_type": "normal",
+        "params": [
+          75524.14,
+          24540.322713860143
+        ],
+        "log_likelihood": -1152.7011401907157,
+        "aic": 2309.4022803814314,
+        "ks_statistic": 0.045728529632055426,
+        "ks_pvalue": 0.978837825535209
+      },
+      "outlier_method": "iqr",
+      "outlier_threshold": 3.0,
+      "has_outliers": false,
+      "outlier_bounds": [
+        4253.5,
+        145811.5
+      ]
+    },
+    "performance_score": {
+      "field_name": "performance_score",
+      "distribution": {
+        "dist_type": "uniform",
+        "params": [
+          1.3506681907921028,
+          8.612712987480862
+        ],
+        "log_likelihood": -215.32393660753146,
+        "aic": 434.64787321506293,
+        "ks_statistic": 0.07526313140734506,
+        "ks_pvalue": 0.5959438120902468
+      },
+      "outlier_method": "iqr",
+      "outlier_threshold": 3.0,
+      "has_outliers": false,
+      "outlier_bounds": [
+        -1.7124677952066927,
+        13.25113622807746
+      ]
+    }
+  },
+  "categorical_patterns": {
+    "department": {
+      "field_name": "department",
+      "probabilities": {
+        "Engineering": 0.37,
+        "Sales": 0.29,
+        "Marketing": 0.25,
+        "HR": 0.09
+      },
+      "is_multimodal": true,
+      "entropy": 1.2901455994363409
+    }
+  },
+  "string_patterns": {
+    "customer_id": {
+      "field_name": "customer_id",
+      "min_length": 13,
+      "max_length": 13,
+      "avg_length": 13.0,
+      "length_distribution": {
+        "dist_type": "lognormal",
+        "params": [
+          1.7032781438566582,
+          12.999999999999996,
+          1.9145522202001994e-14
+        ]
+      },
+      "common_prefixes": [
+        "CUS"
+      ],
+      "common_suffixes": [
+        "001",
+        "002",
+        "003",
+        "004",
+        "005"
+      ],
+      "regex_pattern": null
+    },
+    "name": {
+      "field_name": "name",
+      "min_length": 10,
+      "max_length": 12,
+      "avg_length": 10.92,
+      "length_distribution": {
+        "dist_type": "normal",
+        "params": [
+          10.92,
+          0.30594117081556693
+        ]
+      },
+      "common_prefixes": [
+        "Cus"
+      ],
+      "common_suffixes": [
+        "r_1",
+        "r_2",
+        "r_3",
+        "r_4",
+        "r_5"
+      ],
+      "regex_pattern": null
+    },
+    "email": {
+      "field_name": "email",
+      "min_length": 21,
+      "max_length": 23,
+      "avg_length": 21.92,
+      "length_distribution": {
+        "dist_type": "normal",
+        "params": [
+          21.92,
+          0.3059411708155671
+        ]
+      },
+      "common_prefixes": [
+        "cus"
+      ],
+      "common_suffixes": [
+        "com"
+      ],
+      "regex_pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    }
+  },
+  "quality_metrics": {
+    "completeness": 1.0,
+    "avg_distribution_pvalue": 0.6802968963761061,
+    "avg_categorical_entropy": 1.2901455994363409
+  },
+  "version": "1.0"
+}

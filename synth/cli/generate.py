@@ -17,6 +17,7 @@ from rich.panel import Panel
 import pandas as pd
 
 from synth.generation.sampler import StatisticalSampler
+from synth.generation.copula_sampler import CopulaSampler
 from synth.patterns.storage import PatternStorage
 from synth.validation.engine import ValidationEngine
 from synth.input.parser import FileParser
@@ -36,6 +37,7 @@ def generate(
     validate: bool = Option(False, "--validate", "-v", help="Validate after generation"),
     reference: str = Option(None, "--reference", "-r", help="Reference file for validation"),
     format_type: str = Option("csv", "--format", "-f", help="Output format (csv, excel, json, parquet)"),
+    preserve_correlations: bool = Option(False, "--preserve-correlations", help="Preserve learned correlations during generation"),
 ):
     """
     Generate synthetic data from a learned pattern.
@@ -44,12 +46,11 @@ def generate(
         synth generate --pattern customer_pattern.json --count 10000 --output synthetic_customers.csv
         synth generate --pattern customer_pattern.json --count 1000 --seed 42 --output output.csv
         synth generate --pattern customer_pattern.json --count 5000 --validate --reference original_data.csv
+        synth generate --pattern customer_pattern.json --count 1000 --preserve-correlations --output correlated.csv
     """
     try:
         # Initialize
         storage = PatternStorage()
-        sampler = StatisticalSampler(seed=seed)
-
         console.print(f"[cyan]Generating synthetic data...[/cyan]\n")
 
         with Progress(
@@ -82,7 +83,16 @@ def generate(
             # Phase 2: Generate records
             task2 = progress.add_task(f"Generating {count:,} records...", total=count)
 
-            df = sampler.generate(loaded_pattern, count)
+            # Select sampler based on correlation flag and pattern
+            if preserve_correlations and loaded_pattern.correlation_patterns:
+                sampler = CopulaSampler(seed=seed)
+                console.print("[cyan]Using correlation-aware generation[/cyan]")
+                df = sampler.generate_with_correlation(loaded_pattern, count)
+            else:
+                if preserve_correlations and not loaded_pattern.correlation_patterns:
+                    console.print("[yellow]Warning:[/yellow] Pattern has no correlation data. Using standard generation.")
+                sampler = StatisticalSampler(seed=seed)
+                df = sampler.generate(loaded_pattern, count)
 
             progress.update(task2, completed=count)
 
@@ -176,7 +186,8 @@ def _display_validation_results(result):
         f"[bold {color}]Status: {result.overall_status.value.upper()}[/bold {color}]\n\n"
         f"Schema Score: [cyan]{result.schema_score:.2f}[/cyan]\n"
         f"Statistical Score: [cyan]{result.statistical_score:.2f}[/cyan]\n"
-        f"Constraint Score: [cyan]{result.constraint_score:.2f}[/cyan]",
+        f"Constraint Score: [cyan]{result.constraint_score:.2f}[/cyan]\n"
+        f"Correlation Score: [cyan]{result.correlation_score:.2f}[/cyan]",
         title="Validation Results",
         border_style=color,
     ))

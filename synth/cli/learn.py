@@ -22,6 +22,7 @@ from synth.patterns.storage import (
     PatternStorage,
     create_pattern_from_analysis,
 )
+from synth.patterns.correlation import MultivariateAnalyzer
 from synth.config import settings
 from synth.core.errors import SynthError
 
@@ -36,6 +37,7 @@ def learn(
     output: str = Option(None, "--output", "-o", help="Output pattern file path"),
     format_type: str = Option(None, "--format", "-f", help="Source format (auto-detected if not specified)"),
     verbose: bool = Option(False, "--verbose", "-v", help="Show detailed progress"),
+    correlation: bool = Option(False, "--correlation", help="Learn correlation patterns for multivariate generation"),
 ):
     """
     Extract patterns from a data source and save them for generation.
@@ -44,6 +46,7 @@ def learn(
         synth learn --source customers.csv --name customer_pattern
         synth learn --source data.xlsx --name sales_data --format excel
         synth learn --source data.pdf --name pdf_data
+        synth learn --source customers.csv --name customer_pattern --correlation
     """
     try:
         # Initialize
@@ -51,6 +54,7 @@ def learn(
         schema_inferrer = SchemaInferrer()
         stat_analyzer = UnivariateAnalyzer()
         storage = PatternStorage()
+        multivariate_analyzer = MultivariateAnalyzer() if correlation else None
 
         console.print(f"[cyan]Learning patterns from: {source}[/cyan]\n")
 
@@ -110,9 +114,47 @@ def learn(
             if verbose:
                 progress.remove_task(task3)
 
-            # Phase 4: Create and save pattern
+            # Phase 4: Learn correlations (if enabled)
+            correlation_pattern_dict = None
+            if correlation:
+                if verbose:
+                    task4 = progress.add_task("Learning correlation patterns...", total=None)
+
+                # Get numeric columns
+                numeric_fields = [
+                    f.name for f in schema.fields
+                    if f.type.value in ("integer", "float")
+                ]
+
+                if len(numeric_fields) >= 2:
+                    try:
+                        correlation_pattern = multivariate_analyzer.learn_correlation(
+                            df[numeric_fields],
+                            numeric_columns=numeric_fields
+                        )
+                        # Serialize correlation pattern for storage
+                        correlation_pattern_dict = {
+                            "field_order": correlation_pattern.field_order,
+                            "correlation_matrix": correlation_pattern.correlation_matrix.tolist(),
+                            "copula_type": correlation_pattern.copula_type.value,
+                            "quality_score": correlation_pattern.quality_score,
+                            "is_positive_definite": correlation_pattern.is_positive_definite,
+                            "eigenvalues": correlation_pattern.eigenvalues.tolist() if correlation_pattern.eigenvalues is not None else None,
+                            "condition_number": correlation_pattern.condition_number,
+                        }
+                        console.print(f"[green]✓[/green] Learned correlations for [cyan]{len(numeric_fields)}[/cyan] numeric fields")
+                    except ValueError as e:
+                        console.print(f"[yellow]Warning:[/yellow] Could not learn correlations: {str(e)}")
+                        console.print("[dim]Continuing without correlation patterns...[/dim]")
+                else:
+                    console.print(f"[yellow]Warning:[/yellow] Need at least 2 numeric fields for correlation analysis (found {len(numeric_fields)})")
+
+                if verbose:
+                    progress.remove_task(task4)
+
+            # Phase 5: Create and save pattern
             if verbose:
-                task4 = progress.add_task("Creating pattern...", total=None)
+                task5 = progress.add_task("Creating pattern...", total=None)
 
             pattern = create_pattern_from_analysis(
                 pattern_id=name,
@@ -123,12 +165,16 @@ def learn(
                 source_files=[source],
             )
 
-            if verbose:
-                progress.remove_task(task4)
+            # Add correlation patterns if learned
+            if correlation_pattern_dict:
+                pattern.correlation_patterns = correlation_pattern_dict
 
-            # Phase 5: Save to storage
             if verbose:
-                task5 = progress.add_task("Saving pattern...", total=None)
+                progress.remove_task(task5)
+
+            # Phase 6: Save to storage
+            if verbose:
+                task6 = progress.add_task("Saving pattern...", total=None)
 
             # Determine output path
             if output is None:
@@ -137,15 +183,17 @@ def learn(
             output_path = storage.save_pattern(pattern, output)
 
             if verbose:
-                progress.remove_task(task5)
+                progress.remove_task(task6)
 
         # Display success summary
+        correlation_note = "\nCorrelations: [cyan]Learned[/cyan]" if correlation and correlation_pattern_dict else ""
         console.print(Panel(
             f"[bold green]✓ Pattern Learned Successfully[/bold green]\n\n"
             f"Pattern ID: [cyan]{name}[/cyan]\n"
             f"Source File: [dim]{source}[/dim]\n"
             f"Records: [cyan]{schema.row_count:,}[/cyan]\n"
             f"Fields: [cyan]{len(schema.fields)}[/cyan]\n"
+            f"{correlation_note}"
             f"Output: [dim]{output_path}[/dim]",
             title="Pattern Summary",
             border_style="green",
