@@ -352,6 +352,72 @@ class TrueAIAgent:
             else:
                 result = await self._execute_plan(plan, context)
 
+            # FEATURE 3: Causal Reasoning - Analyze outcomes - TRUE AI AGENT CAPABILITY
+            causal_explanation = None
+            if self.causal_reasoning is not None:
+                try:
+                    causal_explanation = self.causal_reasoning.analyze_outcome(
+                        context=context,
+                        plan=plan,
+                        outcome=result
+                    )
+                    print(f"[Causal Reasoning] Outcome analysis:")
+                    print(f"  - What: {causal_explanation.what}")
+                    print(f"  - Why: {causal_explanation.why}")
+                    print(f"  - How: {causal_explanation.how}")
+                    print(f"  - Factors: {len(causal_explanation.factors)}")
+                    print(f"  - Confidence: {causal_explanation.confidence:.1%}")
+
+                    # Store causal explanation in result metadata
+                    if "metadata" not in result:
+                        result["metadata"] = {}
+                    result["metadata"]["causal_reasoning"] = {
+                        "what": causal_explanation.what,
+                        "why": causal_explanation.why,
+                        "how": causal_explanation.how,
+                        "factors": len(causal_explanation.factors),
+                        "confidence": causal_explanation.confidence,
+                    }
+
+                except Exception as e:
+                    print(f"Warning: Causal reasoning failed: {e}")
+
+            # FEATURE 4: Adaptive Learning - Record experience - TRUE AI AGENT CAPABILITY
+            if self.adaptive_learning is not None:
+                try:
+                    # Extract action and parameters from context
+                    action = context.request.request_type.value
+                    parameters = context.request.entities.copy()
+
+                    # Determine quality metrics
+                    duration = result.get("metadata", {}).get("processing_time_seconds", time.time() - start_time)
+                    quality = 1.0 if result.get("success") else 0.0
+
+                    # Record the experience
+                    reward = self.adaptive_learning.record_experience(
+                        context=context,
+                        action=action,
+                        parameters=parameters,
+                        outcome=result.get("success", False),
+                        duration=duration,
+                        quality_metrics={"quality": quality}
+                    )
+
+                    print(f"[Adaptive Learning] Experience recorded:")
+                    print(f"  - Action: {action}")
+                    print(f"  - Outcome: {'Success' if result.get('success') else 'Failure'}")
+                    print(f"  - Duration: {duration:.2f}s")
+                    print(f"  - Quality: {quality:.2f}")
+                    print(f"  - Reward: {reward:.2f}")
+
+                    # Get learning summary
+                    learning_summary = self.adaptive_learning.get_learning_summary()
+                    print(f"  - Total episodes: {learning_summary['total_episodes']}")
+                    print(f"  - Recent success rate: {learning_summary['recent_success_rate']:.1%}")
+
+                except Exception as e:
+                    print(f"Warning: Adaptive learning recording failed: {e}")
+
             # Step 5: Learn - Store outcomes in memory
             await self._learn_from_outcome(parsed_request, result, context)
 
@@ -1274,6 +1340,115 @@ class TrueAIAgent:
         plan.status = TaskStatus.COMPLETED if results["success"] else TaskStatus.FAILED
 
         return results
+
+    async def _execute_with_self_correction(
+        self, plan: Plan, context: Context
+    ) -> Dict[str, Any]:
+        """
+        Execute plan with automatic self-correction.
+
+        FEATURE 2: Self-Correction Engine - TRUE AI AGENT CAPABILITY
+        Wraps execution with error detection, diagnosis, and recovery.
+
+        Args:
+            plan: Execution plan
+            context: Current execution context
+
+        Returns:
+            Execution results with automatic error recovery
+        """
+        max_attempts = self.correction_engine.max_retries if hasattr(self.correction_engine, 'max_retries') else 3
+        attempt = 0
+        last_error = None
+        corrections_applied = []
+
+        while attempt < max_attempts:
+            attempt += 1
+            print(f"[Self-Correction] Execution attempt {attempt}/{max_attempts}")
+
+            try:
+                # Attempt execution
+                result = await self._execute_plan(plan, context)
+
+                # If successful, return result
+                if result.get("success"):
+                    if attempt > 1:
+                        print(f"[Self-Correction] Success after {attempt} attempts with {len(corrections_applied)} corrections")
+                        result["corrections_applied"] = corrections_applied
+                    return result
+
+                # Execution failed - diagnose error
+                last_error = result.get("message", "Unknown error")
+                print(f"[Self-Correction] Execution failed: {last_error}")
+
+                # Attempt diagnosis and recovery
+                if attempt < max_attempts:
+                    diagnosis = self.correction_engine.diagnose_error(
+                        error_type="execution_failure",
+                        error_context={
+                            "plan": plan.to_dict() if hasattr(plan, 'to_dict') else str(plan),
+                            "context": context.to_dict(),
+                            "error_message": last_error,
+                        }
+                    )
+
+                    print(f"[Self-Correction] Diagnosis: {diagnosis.get('error_type', 'unknown')}")
+                    print(f"[Self-Correction] Suggested corrections: {len(diagnosis.get('suggested_corrections', []))}")
+
+                    # Apply corrections if available
+                    if diagnosis.get("suggested_corrections"):
+                        for correction in diagnosis["suggested_corrections"]:
+                            correction_applied = self.correction_engine.apply_correction(
+                                correction=correction,
+                                context=context
+                            )
+                            corrections_applied.append(correction)
+                            print(f"[Self-Correction] Applied correction: {correction.get('type')}")
+
+                    # Learn from this error
+                    self.correction_engine.learn_from_error(
+                        error_type="execution_failure",
+                        context=context,
+                        correction_applied=corrections_applied[-1] if corrections_applied else None,
+                        success=False
+                    )
+
+            except Exception as e:
+                last_error = str(e)
+                print(f"[Self-Correction] Exception during execution: {last_error}")
+
+                # Diagnose exception
+                if attempt < max_attempts:
+                    try:
+                        diagnosis = self.correction_engine.diagnose_error(
+                            error_type="exception",
+                            error_context={
+                                "exception_type": type(e).__name__,
+                                "exception_message": str(e),
+                                "context": context.to_dict(),
+                            }
+                        )
+
+                        # Apply suggested corrections
+                        if diagnosis.get("suggested_corrections"):
+                            for correction in diagnosis["suggested_corrections"]:
+                                correction_applied = self.correction_engine.apply_correction(
+                                    correction=correction,
+                                    context=context
+                                )
+                                corrections_applied.append(correction)
+                    except Exception as diag_error:
+                        print(f"[Self-Correction] Diagnosis failed: {diag_error}")
+
+        # All attempts exhausted
+        print(f"[Self-Correction] Max attempts ({max_attempts}) reached. Returning final result.")
+        return {
+            "success": False,
+            "message": f"Execution failed after {max_attempts} attempts. Last error: {last_error}",
+            "steps_completed": 0,
+            "steps_failed": 0,
+            "corrections_applied": corrections_applied,
+        }
 
     async def _learn_from_outcome(
         self, request: ParsedRequest, result: Dict[str, Any], context: Context
