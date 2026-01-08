@@ -30,6 +30,7 @@ from synth.agent.models.core import (
     Error,
     ErrorSeverity,
 )
+from synth.agent.state import IntentType
 from synth.agent.memory.layer import MemoryLayer
 from synth.agent.tools.registry import ToolRegistry
 from synth.agent.tools.core_tools import (
@@ -205,8 +206,8 @@ class TrueAIAgent:
             # 3b. Create plan informed by reasoning - TRUE AI AGENT
             plan = await self._create_plan_with_reasoning(context, reasoning_result)
 
-            # Step 4: Act - Execute the plan with adaptive capabilities
-            result = await self._execute_plan_adaptive(plan, context)
+            # Step 4: Act - Execute the plan
+            result = await self._execute_plan(plan, context)
 
             # Step 5: Learn - Store outcomes in memory
             await self._learn_from_outcome(parsed_request, result, context)
@@ -315,8 +316,6 @@ class TrueAIAgent:
         Returns:
             ParsedRequest with extracted information
         """
-        from synth.agent.state import IntentType
-
         # Map LLM intent types to RequestType
         intent_to_request_type = {
             IntentType.GENERATE: RequestType.DATA_GENERATION,
@@ -1009,6 +1008,79 @@ class TrueAIAgent:
                     params[key] = context.request.entities[ref]
 
         return params
+
+    async def _execute_plan(self, plan: Plan, context: Context) -> Dict[str, Any]:
+        """Execute the plan - simple version without adaptive features."""
+        results = {
+            "success": True,
+            "message": "",
+            "data": None,
+            "steps_completed": 0,
+            "steps_failed": 0,
+        }
+
+        completed_steps = []
+
+        for step in plan.steps:
+            # Check if step is ready
+            if not step.is_ready(completed_steps):
+                continue
+
+            step.status = TaskStatus.IN_PROGRESS
+            step.started_at = datetime.now()
+
+            # Execute the tool
+            if step.tool:
+                try:
+                    # Process parameters (resolve references)
+                    params = self._process_step_parameters(step, context)
+
+                    tool_result = await self.tools.execute_tool(step.tool, **params)
+
+                    if tool_result.success:
+                        step.status = TaskStatus.COMPLETED
+                        step.result = tool_result.data
+                        step.completed_at = datetime.now()
+                        results["steps_completed"] += 1
+
+                        # Store result in context for dependent steps
+                        context.working_variables[f"{step.step_id}_result"] = tool_result.data
+                        completed_steps.append(step.step_id)
+
+                    else:
+                        step.status = TaskStatus.FAILED
+                        step.error = tool_result.error
+                        step.completed_at = datetime.now()
+                        results["steps_failed"] += 1
+                        results["success"] = False
+                        results["message"] = f"Step failed: {step.error}"
+                        break
+
+                except Exception as e:
+                    step.status = TaskStatus.FAILED
+                    step.error = str(e)
+                    step.completed_at = datetime.now()
+                    results["steps_failed"] += 1
+                    results["success"] = False
+                    results["message"] = f"Step exception: {str(e)}"
+                    break
+            else:
+                # Non-tool step (just mark complete)
+                step.status = TaskStatus.COMPLETED
+                step.completed_at = datetime.now()
+                results["steps_completed"] += 1
+                completed_steps.append(step.step_id)
+
+        # Get final result
+        if plan.steps:
+            last_step = plan.steps[-1]
+            if last_step.result is not None:
+                results["data"] = last_step.result
+                results["message"] = f"Completed {results['steps_completed']} steps successfully"
+
+        plan.status = TaskStatus.COMPLETED if results["success"] else TaskStatus.FAILED
+
+        return results
 
     async def _learn_from_outcome(
         self, request: ParsedRequest, result: Dict[str, Any], context: Context
