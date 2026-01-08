@@ -1,0 +1,70 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+.agent_memory/
+.demo_agent_memory/
+.test_agent_memory/
+.test_reasoning_memory/
+.test_reasoning_v2/
+.final_reasoning_test/
+.multistep_test/
+.serena/
+
+# Output files
+*.csv
+output.csv
+test_output.csv
+test.csv
+
+# Claude Code settings (keep skills but ignore local settings)
+.claude/settings.local.json
+.claude/settings.bak
+
+# Temporary files
+*.tmp
+*.bak
+*.log
