@@ -77,7 +77,7 @@ except ImportError:
     SelfCorrectionEngine = None
 
 try:
-    from synth.agent.proactive.init import ProactiveAgent
+    from synth.agent.proactive.proactive import ProactiveAgent
 except ImportError:
     ProactiveAgent = None
 

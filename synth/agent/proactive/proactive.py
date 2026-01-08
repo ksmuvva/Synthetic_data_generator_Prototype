@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import asyncio
 
-from synth.agent.models.core import Context, Suggestion, SuggestionType
+from synth.agent.models.core import Context, Suggestion
 
 
 @dataclass
