@@ -523,10 +523,11 @@ class TestMemoryLayer:
     def test_similar_situations_integration(self, temp_storage):
         """Test finding similar situations through MemoryLayer."""
         from synth.agent.memory.layer import MemoryLayer
+        from synth.agent.models.core import ParsedRequest
 
         memory = MemoryLayer(storage_path=temp_storage)
 
-        # Record some interactions
+        # Record some interactions - using simple dict instead of ParsedRequest
         memory.record_interaction(
             request="Generate 100 customer records with email and phone",
             response={"success": True},
@@ -539,7 +540,7 @@ class TestMemoryLayer:
             metadata={}
         )
 
-        # Find similar situations
+        # Find similar situations - uses string matching internally
         similar = memory.find_similar_situations("generate customer records")
 
         # Should find at least one similar interaction
