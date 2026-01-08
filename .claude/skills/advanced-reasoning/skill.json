@@ -1,0 +1,16 @@
+{
+  "name": "advanced-reasoning",
+  "description": "Complex problem-solving with systematic frameworks (CoT, ToT, MCTS)",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Development & Requirements",
+  "capabilities": [
+    "Chain of Thought reasoning",
+    "Tree of Thoughts exploration",
+    "MCTS decision making",
+    "Decomposition strategies",
+    "Multi-step problem solving",
+    "Logical analysis"
+  ]
+}

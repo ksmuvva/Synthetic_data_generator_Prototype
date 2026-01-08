@@ -1,0 +1,16 @@
+{
+  "name": "bpm-consultant",
+  "description": "Business process management, BPMN diagrams, process optimization",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Business & Process",
+  "capabilities": [
+    "Process discovery",
+    "BPMN diagram design",
+    "Process optimization",
+    "Workflow automation",
+    "Process mining",
+    "KPI definition"
+  ]
+}

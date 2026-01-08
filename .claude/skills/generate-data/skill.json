@@ -1,0 +1,31 @@
+{
+  "name": "generate-data",
+  "description": "Generate synthetic data using patterns from your codebase. Usage: /generate-data [pattern_name] [count] [output_file]",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "author": "Your Name",
+  "permissions": [
+    "read",
+    "write",
+    "execute"
+  ],
+  "parameters": {
+    "pattern_name": {
+      "type": "string",
+      "description": "Name of the pattern to use (optional, uses default if not specified)",
+      "required": false
+    },
+    "count": {
+      "type": "integer",
+      "description": "Number of records to generate (default: 10)",
+      "required": false,
+      "default": 10
+    },
+    "output_file": {
+      "type": "string",
+      "description": "Output file path (optional, prints to console if not specified)",
+      "required": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "azure-architect",
+  "description": "Comprehensive Azure across Data, AI, Security, DevOps, and all domains",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Cloud & Infrastructure",
+  "capabilities": [
+    "Azure data services",
+    "Azure AI/ML services",
+    "Azure security",
+    "Azure DevOps",
+    "Azure networking",
+    "Azure cost optimization",
+    "Azure governance"
+  ]
+}

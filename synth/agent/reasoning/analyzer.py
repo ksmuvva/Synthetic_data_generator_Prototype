@@ -143,7 +143,11 @@ class ProblemAnalyzer:
         request: ParsedRequest,
     ) -> ProblemType:
         """Analyze problem type."""
-        # Check for multi-step indicators
+        # Check for multi-objective request type (from parser)
+        if request.request_type == RequestType.MULTI_OBJECTIVE:
+            return ProblemType.MULTI_STEP
+
+        # Check for multi-step indicators in text
         multi_step_keywords = [
             "and then",
             "after that",
@@ -156,6 +160,11 @@ class ProblemAnalyzer:
         is_multi_step = any(keyword in request_lower for keyword in multi_step_keywords)
 
         if is_multi_step:
+            return ProblemType.MULTI_STEP
+
+        # Check for multiple detected types in entities
+        detected_types = request.entities.get("detected_types", [])
+        if len(detected_types) > 1:
             return ProblemType.MULTI_STEP
 
         # Map request type to problem type
@@ -252,8 +261,27 @@ class ProblemAnalyzer:
         """Identify requirements for solving the problem."""
         requirements = []
 
-        # Based on request type
-        if request.request_type == RequestType.DATA_GENERATION:
+        # Handle multi-step requests
+        if request.request_type == RequestType.MULTI_OBJECTIVE:
+            detected_types = request.entities.get("detected_types", [])
+            requirements.append(f"Multi-step execution: {len(detected_types)} operations")
+            requirements.append("Proper data flow between steps")
+            requirements.append("Dependency management")
+
+            # Add requirements for each detected type
+            for req_type in detected_types:
+                if req_type == RequestType.DATA_GENERATION:
+                    requirements.append("Input data for pattern learning")
+                    count = request.entities.get("count", 0)
+                    if count > 1000:
+                        requirements.append(f"Efficient generation for {count} records")
+                elif req_type == RequestType.DATA_VALIDATION:
+                    requirements.append("Original and synthetic data for comparison")
+                elif req_type == RequestType.DATA_EXPORT:
+                    requirements.append("Valid file path for export")
+
+        # Based on single request type
+        elif request.request_type == RequestType.DATA_GENERATION:
             requirements.append("Input data for pattern learning")
             requirements.append("Sufficient memory for generation")
 
@@ -302,6 +330,14 @@ class ProblemAnalyzer:
         count = request.entities.get("count", 0)
         if count > 50000:
             issues.append(f"Generating {count} records may take significant time")
+
+        # Check for multi-step specific issues
+        if request.request_type == RequestType.MULTI_OBJECTIVE:
+            detected_types = request.entities.get("detected_types", [])
+            if RequestType.DATA_EXPORT in detected_types:
+                path = request.entities.get("path")
+                if not path:
+                    issues.append("Export requested but no file path specified")
 
         # Check for missing requirements
         if request.request_type == RequestType.DATA_VALIDATION:

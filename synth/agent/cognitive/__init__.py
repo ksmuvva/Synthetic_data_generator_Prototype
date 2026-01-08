@@ -8,6 +8,11 @@ from synth.agent.cognitive.progress import (
     PlanProgress,
     StepProgress,
 )
+from synth.agent.cognitive.optimizer import (
+    ParameterOptimizer,
+    ParameterSuggestion,
+    OptimizationResult,
+)
 from synth.agent.cognitive.layer import CognitiveLayer
 
 __all__ = [
@@ -21,5 +26,8 @@ __all__ = [
     "ProgressTracker",
     "PlanProgress",
     "StepProgress",
+    "ParameterOptimizer",
+    "ParameterSuggestion",
+    "OptimizationResult",
     "CognitiveLayer",
 ]

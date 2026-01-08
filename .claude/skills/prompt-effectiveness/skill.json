@@ -1,0 +1,16 @@
+{
+  "name": "prompt-effectiveness",
+  "description": "Measure prompt effectiveness and optimize prompt engineering",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Quality & Optimization",
+  "capabilities": [
+    "Prompt quality measurement",
+    "A/B testing for prompts",
+    "Prompt optimization strategies",
+    "Performance metrics",
+    "Prompt iteration workflows",
+    "Prompt analytics"
+  ]
+}

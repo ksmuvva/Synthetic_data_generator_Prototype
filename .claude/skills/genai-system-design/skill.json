@@ -1,0 +1,16 @@
+{
+  "name": "genai-system-design",
+  "description": "GenAI architecture, validation pipelines, system design expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "GenAI architecture design",
+    "LLM selection and evaluation",
+    "Prompt engineering strategies",
+    "Validation pipelines",
+    "Safety and alignment",
+    "Cost optimization"
+  ]
+}

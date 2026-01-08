@@ -1,0 +1,16 @@
+{
+  "name": "data-scientist",
+  "description": "Data analysis, statistical modeling, ML development expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "Exploratory data analysis",
+    "Statistical modeling",
+    "Feature engineering",
+    "Model selection",
+    "Experimentation design",
+    "Data visualization"
+  ]
+}

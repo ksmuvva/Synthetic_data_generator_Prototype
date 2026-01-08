@@ -1,0 +1,15 @@
+{
+  "name": "ai-engineer",
+  "description": "GenAI systems, RAG, AI agents, production deployment expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "RAG system design",
+    "AI agent architecture",
+    "LLM deployment",
+    "Vector databases",
+    "Production AI pipelines"
+  ]
+}

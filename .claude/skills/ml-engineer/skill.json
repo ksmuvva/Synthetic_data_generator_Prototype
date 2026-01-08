@@ -1,0 +1,16 @@
+{
+  "name": "ml-engineer",
+  "description": "ML lifecycle, MLOps, model deployment, monitoring expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "ML pipeline design",
+    "Model versioning",
+    "Feature engineering",
+    "Model monitoring",
+    "A/B testing",
+    "MLOps infrastructure"
+  ]
+}

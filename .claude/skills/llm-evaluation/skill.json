@@ -1,0 +1,16 @@
+{
+  "name": "llm-evaluation",
+  "description": "LLM testing, quality metrics, production monitoring expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "LLM benchmarking",
+    "Quality metrics design",
+    "Production monitoring",
+    "A/B testing for LLMs",
+    "Human evaluation frameworks",
+    "Automated testing"
+  ]
+}

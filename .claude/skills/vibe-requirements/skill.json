@@ -1,0 +1,16 @@
+{
+  "name": "vibe-requirements",
+  "description": "Requirements engineering for AI-assisted development",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Development & Requirements",
+  "capabilities": [
+    "Requirements gathering",
+    "User story writing",
+    "Acceptance criteria",
+    "Technical specification",
+    "Stakeholder communication",
+    "AI-assisted requirement refinement"
+  ]
+}

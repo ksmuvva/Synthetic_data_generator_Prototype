@@ -1,0 +1,16 @@
+{
+  "name": "tender-writing-expert",
+  "description": "UK public sector tenders (G-Cloud, NHS, Local Government)",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "Business & Process",
+  "capabilities": [
+    "G-Cloud framework applications",
+    "NHS tender responses",
+    "Local government bids",
+    "Social value articulation",
+    "Compliance and scoring",
+    "Bid management"
+  ]
+}

@@ -16,7 +16,10 @@
       "Bash(chcp:*)",
       "Bash(ls:*)",
       "Bash(mkdir:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "mcp__plugin_serena_serena__list_dir",
+      "mcp__plugin_serena_serena__get_current_config",
+      "Bash(echo.:*)"
     ]
   }
 }

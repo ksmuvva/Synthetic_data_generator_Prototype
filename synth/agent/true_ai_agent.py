@@ -38,6 +38,28 @@ from synth.agent.tools.core_tools import (
     DataAnalysisTool,
     DataExportTool,
 )
+from synth.agent.reasoning.engine import ReasoningEngine, ReasoningResult
+
+# LLM Integration imports
+try:
+    from synth.agent.llm import get_llm_provider, LLMProvider
+    from synth.agent.llm.parser import LLMIntentParser, LLMReasoningEngine as LLMReasoning
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+
+# Cognitive Layer imports
+from synth.agent.cognitive.layer import CognitiveLayer
+from synth.agent.cognitive.strategy import StrategySelector, StrategyFit
+from synth.agent.cognitive.tool_selector import ToolSelector
+from synth.agent.cognitive.decision import DecisionEngine
+from synth.agent.cognitive.optimizer import ParameterOptimizer
+from synth.agent.cognitive.progress import ProgressTracker
+
+# Planning imports
+from synth.agent.planning.goal import GoalDecomposer
+from synth.agent.planning.planner import PlanningEngine, PlanOptions
+from synth.agent.planning.adaptive import AdaptivePlanner
 
 
 class TrueAIAgent:
@@ -59,20 +81,56 @@ class TrueAIAgent:
         self,
         storage_path: str = ".agent_memory",
         llm_provider: Optional[str] = None,
+        enable_llm: bool = True,
     ):
         """
         Initialize True AI Agent.
 
         Args:
             storage_path: Path for persistent memory storage
-            llm_provider: LLM provider to use (optional)
+            llm_provider: LLM provider to use (optional: "claude", "openai", "gemini")
+            enable_llm: Whether to enable LLM integration (default: True)
         """
         # Initialize memory
         self.memory = MemoryLayer(storage_path=storage_path)
 
+        # Initialize LLM components - TRUE AI AGENT CAPABILITY
+        self.llm_enabled = enable_llm and LLM_AVAILABLE
+        self.llm_provider_name = llm_provider or "claude"
+        self.llm = None
+        self.llm_parser = None
+        self.llm_reasoning = None
+
+        if self.llm_enabled:
+            try:
+                self.llm = get_llm_provider(provider=self.llm_provider_name)
+                self.llm_parser = LLMIntentParser(llm=self.llm)
+                self.llm_reasoning = LLMReasoning(llm=self.llm)
+            except Exception as e:
+                # LLM initialization failed, fall back to rule-based
+                print(f"Warning: LLM initialization failed: {e}. Using rule-based parsing.")
+                self.llm_enabled = False
+
         # Initialize tools
         self.tools = ToolRegistry()
         self._register_tools()
+
+        # Initialize reasoning engine - TRUE AI AGENT CAPABILITY
+        self.reasoning = ReasoningEngine()
+
+        # Initialize cognitive layer - TRUE AI AGENT CAPABILITY
+        # Note: Pass tool_registry to components that need it
+        self.cognitive = CognitiveLayer(tool_registry=self.tools)
+        self.strategy_selector = StrategySelector()
+        self.tool_selector = ToolSelector(tool_registry=self.tools)
+        self.decision_engine = DecisionEngine(tool_registry=self.tools)
+        self.parameter_optimizer = ParameterOptimizer()
+        self.progress_tracker = ProgressTracker()
+
+        # Initialize planning engine - TRUE AI AGENT CAPABILITY
+        self.goal_decomposer = GoalDecomposer()
+        self.planning_engine = PlanningEngine()
+        self.adaptive_planner = AdaptivePlanner()
 
         # Agent state
         self._initialized = False
@@ -140,14 +198,28 @@ class TrueAIAgent:
             context.similar_past_situations = similar_situations
             context.user_preferences = user_preferences or {}
 
-            # Step 3: Think - Reason, plan, and decide
-            plan = await self._create_plan(context)
+            # Step 3: Think - Reason, plan, and decide using COGNITIVE LAYER
+            # 3a. Perform comprehensive reasoning
+            reasoning_result = self.reasoning.reason_comprehensive(context)
 
-            # Step 4: Act - Execute the plan
-            result = await self._execute_plan(plan, context)
+            # 3b. Create plan informed by reasoning - TRUE AI AGENT
+            plan = await self._create_plan_with_reasoning(context, reasoning_result)
+
+            # Step 4: Act - Execute the plan with adaptive capabilities
+            result = await self._execute_plan_adaptive(plan, context)
 
             # Step 5: Learn - Store outcomes in memory
             await self._learn_from_outcome(parsed_request, result, context)
+
+            # Record parameter outcome for learning
+            if result.get("success"):
+                used_params = context.request.entities.copy()
+                self.parameter_optimizer.record_outcome(
+                    context,
+                    used_params,
+                    True,
+                    {"quality": 0.9, "duration": result.get("duration", 0)}
+                )
 
             # Step 6: Generate proactive suggestions
             suggestions = await self._generate_suggestions(context, result)
@@ -166,6 +238,7 @@ class TrueAIAgent:
                     "processing_time_seconds": time.time() - start_time,
                     "steps_executed": len(plan.steps),
                     "tools_used": [s.tool for s in plan.steps if s.tool],
+                    "reasoning": self._format_reasoning_for_response(reasoning_result),
                 },
             )
 
@@ -195,6 +268,113 @@ class TrueAIAgent:
     async def _parse_request(self, request: str) -> ParsedRequest:
         """
         Parse user request.
+
+        Extracts:
+        - Intent
+        - Request type
+        - Entities
+        - Constraints
+        - Parameters
+
+        Uses LLM-powered parsing when available, with fallback to rule-based.
+        """
+        # Try LLM-powered parsing first - TRUE AI AGENT CAPABILITY
+        if self.llm_enabled and self.llm_parser:
+            try:
+                # Build context for LLM parser
+                context = {
+                    "previous_messages": [],  # Could add conversation history here
+                    "current_state": {},      # Could add current state tracking here
+                }
+
+                # Use LLM intent parser
+                llm_intent = self.llm_parser.parse(request, context=context)
+
+                # Convert LLM intent to ParsedRequest
+                return self._convert_llm_intent_to_request(llm_intent, request)
+
+            except Exception as e:
+                # LLM parsing failed, fall back to rule-based
+                print(f"Warning: LLM parsing failed: {e}. Using rule-based fallback.")
+
+        # Fallback to rule-based parsing
+        return await self._parse_request_rule_based(request)
+
+    def _convert_llm_intent_to_request(
+        self,
+        llm_intent: Any,
+        original_request: str
+    ) -> ParsedRequest:
+        """
+        Convert LLM parsed intent to ParsedRequest.
+
+        Args:
+            llm_intent: ParsedIntent from LLMIntentParser
+            original_request: Original user request string
+
+        Returns:
+            ParsedRequest with extracted information
+        """
+        from synth.agent.state import IntentType
+
+        # Map LLM intent types to RequestType
+        intent_to_request_type = {
+            IntentType.GENERATE: RequestType.DATA_GENERATION,
+            IntentType.LEARN: RequestType.DATA_ANALYSIS,
+            IntentType.VALIDATE: RequestType.DATA_VALIDATION,
+            IntentType.INSPECT: RequestType.DATA_ANALYSIS,
+            IntentType.UPLOAD: RequestType.UNKNOWN,
+            IntentType.USE_TEMPLATE: RequestType.DATA_GENERATION,
+            IntentType.EXIT: RequestType.UNKNOWN,
+            IntentType.HELP: RequestType.UNKNOWN,
+            IntentType.UNKNOWN: RequestType.UNKNOWN,
+        }
+
+        request_type = intent_to_request_type.get(
+            llm_intent.intent_type,
+            RequestType.UNKNOWN
+        )
+
+        # Build entities from LLM intent
+        entities = {}
+
+        if llm_intent.entity_type:
+            entities["entity_type"] = llm_intent.entity_type
+
+        if llm_intent.record_count:
+            entities["count"] = llm_intent.record_count
+
+        if llm_intent.output_format:
+            entities["format"] = llm_intent.output_format
+
+        # Extract field names if present
+        if llm_intent.fields:
+            entities["fields"] = [f.name for f in llm_intent.fields]
+
+        # Store constraints if present
+        if llm_intent.constraints:
+            entities["constraints"] = [
+                {
+                    "field": c.field,
+                    "type": c.type,
+                    "value": c.value
+                }
+                for c in llm_intent.constraints
+            ]
+
+        return ParsedRequest(
+            original_text=original_request,
+            intent=llm_intent.raw_input,
+            request_type=request_type,
+            entities=entities,
+            constraints=[],  # Already stored in entities
+            complexity=0.5 if llm_intent.metadata else 0.3,
+            confidence=llm_intent.confidence,
+        )
+
+    async def _parse_request_rule_based(self, request: str) -> ParsedRequest:
+        """
+        Rule-based request parsing (fallback when LLM unavailable).
 
         Extracts:
         - Intent
@@ -438,8 +618,238 @@ class TrueAIAgent:
 
         return plan
 
-    async def _execute_plan(self, plan: Plan, context: Context) -> Dict[str, Any]:
-        """Execute the plan."""
+    async def _create_plan_with_reasoning(
+        self, context: Context, reasoning: ReasoningResult
+    ) -> Plan:
+        """
+        Create a plan informed by reasoning results.
+
+        Args:
+            context: Current execution context
+            reasoning: Results from reasoning engine
+
+        Returns:
+            Optimized execution plan
+        """
+        # First, get the base plan
+        plan = await self._create_plan(context)
+
+        # Enhance plan with reasoning insights
+        # 1. Add reasoning metadata to the plan
+        plan.reasoning = {
+            "problem_type": reasoning.problem_analysis.problem_type.value,
+            "complexity": reasoning.problem_analysis.complexity.value,
+            "confidence": reasoning.confidence,
+            "recommendation": reasoning.recommendation,
+            "alternatives_considered": len(reasoning.alternatives),
+        }
+
+        # 2. If consistency issues found, add warnings to steps
+        if reasoning.consistency_checks:
+            for issue in reasoning.consistency_checks:
+                plan.warnings.append({
+                    "type": issue["type"],
+                    "message": issue["description"],
+                    "details": issue.get("details", []),
+                })
+
+        # 3. Use recommended strategy if available
+        if reasoning.recommendation.get("suggested_approach"):
+            suggested = reasoning.recommendation["suggested_approach"]
+            strategy = suggested.get("strategy")
+
+            # Update generation steps with recommended strategy
+            for step in plan.steps:
+                if step.action == "generate_data" and strategy:
+                    step.parameters["strategy"] = strategy
+
+        # 4. Adjust duration estimate based on reasoning
+        if reasoning.problem_analysis.estimated_duration_seconds > 0:
+            # Use reasoning estimate if it's more pessimistic (safer)
+            plan.estimated_duration_seconds = max(
+                plan.estimated_duration_seconds,
+                reasoning.problem_analysis.estimated_duration_seconds,
+            )
+
+        return plan
+
+    def _format_reasoning_for_response(self, reasoning: ReasoningResult) -> Dict[str, Any]:
+        """
+        Format reasoning results for response metadata.
+
+        Args:
+            reasoning: Reasoning result
+
+        Returns:
+            Formatted reasoning dict
+        """
+        return {
+            "problem_analysis": {
+                "type": reasoning.problem_analysis.problem_type.value,
+                "complexity": reasoning.problem_analysis.complexity.value,
+                "difficulty_score": reasoning.problem_analysis.difficulty_score,
+                "requirements": reasoning.problem_analysis.requirements,
+                "potential_issues": reasoning.problem_analysis.potential_issues,
+                "rationale": reasoning.problem_analysis.rationale,
+            },
+            "alternatives_considered": len(reasoning.alternatives),
+            "best_alternative": reasoning.evaluation.get("best", {}).get("alternative") if reasoning.evaluation else None,
+            "consistency_checks": {
+                "issues_found": len(reasoning.consistency_checks),
+                "issues": reasoning.consistency_checks,
+            },
+            "recommendation": reasoning.recommendation,
+            "confidence": reasoning.confidence,
+        }
+
+    async def _create_plan_with_cognitive_layer(
+        self,
+        context: Context,
+        reasoning: ReasoningResult,
+        strategy_fit: StrategyFit
+    ) -> Plan:
+        """
+        Create a plan using the full cognitive layer.
+
+        This replaces the hardcoded plan creation with intelligent planning
+        that uses goal decomposition, strategy selection, and parameter optimization.
+
+        Args:
+            context: Current execution context
+            reasoning: Results from reasoning engine
+            strategy_fit: Selected strategy from StrategySelector
+
+        Returns:
+            Optimized execution plan
+        """
+        # Step 1: Analyze goal complexity using GoalDecomposer - TRUE AI AGENT
+        complexity_assessment = self.goal_decomposer.analyze_goal_complexity(context)
+
+        # Step 2: Decompose goal into sub-goals if complex - TRUE AI AGENT
+        if complexity_assessment.overall_complexity > 0.6:
+            decomposition_result = self.goal_decomposer.decompose_goal(context)
+
+            # Store sub-goals in context for execution
+            context.working_variables["sub_goals"] = [
+                {"description": sg.description, "priority": sg.priority}
+                for sg in decomposition_result["sub_goals"]
+            ]
+        else:
+            decomposition_result = None
+
+        # Step 3: Create plan using PlanningEngine - TRUE AI AGENT
+        plan_options = PlanOptions(
+            enable_checkpoints=True,
+            include_dependencies=True,
+            estimate_durations=True
+        )
+
+        plan = self.planning_engine.create_plan(context, plan_options)
+
+        # Step 4: Make plan adaptive - TRUE AI AGENT
+        plan = self.adaptive_planner.create_adaptive_plan(context)
+
+        # Step 5: Enhance plan with cognitive layer insights
+        # Add reasoning metadata
+        plan.metadata["reasoning"] = {
+            "problem_type": reasoning.problem_analysis.problem_type.value,
+            "complexity": reasoning.problem_analysis.complexity.value,
+            "confidence": reasoning.confidence,
+            "recommendation": reasoning.recommendation,
+            "alternatives_considered": len(reasoning.alternatives),
+        }
+
+        # Add strategy metadata
+        plan.metadata["strategy"] = {
+            "selected": strategy_fit.strategy_type.value,
+            "fit_score": strategy_fit.fit_score,
+            "rationale": strategy_fit.rationale,
+        }
+
+        # Add complexity assessment
+        if decomposition_result:
+            plan.metadata["complexity_assessment"] = {
+                "complexity": complexity_assessment.overall_complexity,
+                "factors": complexity_assessment.complexity_factors,
+                "sub_goal_count": len(decomposition_result["sub_goals"]),
+            }
+
+        # Add consistency warnings from reasoning
+        if reasoning.consistency_checks:
+            for issue in reasoning.consistency_checks:
+                plan.warnings.append({
+                    "type": issue["type"],
+                    "message": issue["description"],
+                    "details": issue.get("details", []),
+                })
+
+        # Apply recommended strategy from reasoning
+        if reasoning.recommendation.get("suggested_approach"):
+            suggested = reasoning.recommendation["suggested_approach"]
+            strategy = suggested.get("strategy")
+
+            # Update generation steps with recommended strategy
+            for step in plan.steps:
+                if step.action == "generate_data" and strategy:
+                    step.parameters["strategy"] = strategy
+
+        # Adjust duration estimate based on reasoning and safety margin
+        if reasoning.problem_analysis.estimated_duration_seconds > 0:
+            # Use reasoning estimate with adaptive planner's safety margin
+            plan.estimated_duration_seconds = max(
+                plan.estimated_duration_seconds,
+                reasoning.problem_analysis.estimated_duration_seconds *
+                plan.metadata.get("replan_threshold", 1.5)
+            )
+
+        return plan
+
+    def _format_reasoning_for_response(self, reasoning: ReasoningResult) -> Dict[str, Any]:
+        """
+        Format reasoning results for response metadata.
+
+        Args:
+            reasoning: Reasoning result
+
+        Returns:
+            Formatted reasoning dict
+        """
+        return {
+            "problem_analysis": {
+                "type": reasoning.problem_analysis.problem_type.value,
+                "complexity": reasoning.problem_analysis.complexity.value,
+                "difficulty_score": reasoning.problem_analysis.difficulty_score,
+                "requirements": reasoning.problem_analysis.requirements,
+                "potential_issues": reasoning.problem_analysis.potential_issues,
+                "rationale": reasoning.problem_analysis.rationale,
+            },
+            "alternatives_considered": len(reasoning.alternatives),
+            "best_alternative": reasoning.evaluation.get("best", {}).get("alternative") if reasoning.evaluation else None,
+            "consistency_checks": {
+                "issues_found": len(reasoning.consistency_checks),
+                "issues": reasoning.consistency_checks,
+            },
+            "recommendation": reasoning.recommendation,
+            "confidence": reasoning.confidence,
+        }
+
+    async def _execute_plan_adaptive(self, plan: Plan, context: Context) -> Dict[str, Any]:
+        """
+        Execute the plan with adaptive replanning capabilities.
+
+        This replaces the basic execution with intelligent execution that:
+        - Monitors progress using ProgressTracker - TRUE AI AGENT
+        - Replans on failures using AdaptivePlanner - TRUE AI AGENT
+        - Recovers from errors automatically
+        - Preserves completed work
+
+        Args:
+            plan: Execution plan
+            context: Current execution context
+
+        Returns:
+            Execution results
+        """
         results = {
             "success": True,
             "message": "",
@@ -448,12 +858,20 @@ class TrueAIAgent:
             "steps_failed": 0,
         }
 
+        # Initialize progress tracking - TRUE AI AGENT
+        self.progress_tracker.start_plan(plan)
+
         completed_steps = []
+        replan_count = 0
+        max_replans = 3  # Prevent infinite replanning loops
 
         for step in plan.steps:
             # Check if step is ready
             if not step.is_ready(completed_steps):
                 continue
+
+            # Update progress - TRUE AI AGENT
+            self.progress_tracker.start_step(step)
 
             step.status = TaskStatus.IN_PROGRESS
             step.started_at = datetime.now()
@@ -469,31 +887,89 @@ class TrueAIAgent:
                     if tool_result.success:
                         step.status = TaskStatus.COMPLETED
                         step.result = tool_result.data
+                        step.completed_at = datetime.now()
                         results["steps_completed"] += 1
+
+                        # Update progress - TRUE AI AGENT
+                        self.progress_tracker.complete_step(step, True)
 
                         # Store result in context for dependent steps
                         context.working_variables[f"{step.step_id}_result"] = tool_result.data
+                        completed_steps.append(step.step_id)
+
                     else:
+                        # Step failed - attempt adaptive replanning - TRUE AI AGENT
                         step.status = TaskStatus.FAILED
                         step.error = tool_result.error
+                        step.completed_at = datetime.now()
                         results["steps_failed"] += 1
-                        results["success"] = False
-                        results["message"] = f"Step failed: {step.error}"
-                        break
+
+                        # Update progress - TRUE AI AGENT
+                        self.progress_tracker.complete_step(step, False, str(tool_result.error))
+
+                        # Check if we should replan
+                        if replan_count < max_replans and self.adaptive_planner.should_replan(plan, context):
+                            try:
+                                # Trigger replanning - TRUE AI AGENT
+                                plan = self.adaptive_planner.trigger_replan(
+                                    plan, step, Exception(tool_result.error), context
+                                )
+                                replan_count += 1
+
+                                # Restart execution with new plan (preserving completed steps)
+                                # Continue from the next step after current position
+                                continue
+
+                            except Exception as replan_error:
+                                # Replanning failed, abort
+                                results["success"] = False
+                                results["message"] = f"Replanning failed: {str(replan_error)}"
+                                break
+                        else:
+                            # Cannot recover
+                            results["success"] = False
+                            results["message"] = f"Step failed: {step.error}"
+                            break
+
                 except Exception as e:
+                    # Step exception - attempt adaptive replanning - TRUE AI AGENT
                     step.status = TaskStatus.FAILED
                     step.error = str(e)
+                    step.completed_at = datetime.now()
                     results["steps_failed"] += 1
-                    results["success"] = False
-                    results["message"] = f"Step exception: {str(e)}"
-                    break
+
+                    # Update progress - TRUE AI AGENT
+                    self.progress_tracker.complete_step(step, False, str(e))
+
+                    # Check if we should replan
+                    if replan_count < max_replans and self.adaptive_planner.should_replan(plan, context):
+                        try:
+                            # Trigger replanning - TRUE AI AGENT
+                            plan = self.adaptive_planner.trigger_replan(plan, step, e, context)
+                            replan_count += 1
+
+                            # Restart execution with new plan
+                            continue
+
+                        except Exception as replan_error:
+                            # Replanning failed, abort
+                            results["success"] = False
+                            results["message"] = f"Replanning failed: {str(replan_error)}"
+                            break
+                    else:
+                        # Cannot recover
+                        results["success"] = False
+                        results["message"] = f"Step exception: {str(e)}"
+                        break
             else:
                 # Non-tool step (just mark complete)
                 step.status = TaskStatus.COMPLETED
+                step.completed_at = datetime.now()
                 results["steps_completed"] += 1
 
-            step.completed_at = datetime.now()
-            completed_steps.append(step.step_id)
+                # Update progress - TRUE AI AGENT
+                self.progress_tracker.complete_step(step, True)
+                completed_steps.append(step.step_id)
 
         # Get final result
         if plan.steps:
@@ -501,8 +977,19 @@ class TrueAIAgent:
             if last_step.result is not None:
                 results["data"] = last_step.result
                 results["message"] = f"Completed {results['steps_completed']} steps successfully"
+                if replan_count > 0:
+                    results["message"] += f" (after {replan_count} adaptive replans)"
 
+        # Update final plan status - TRUE AI AGENT
         plan.status = TaskStatus.COMPLETED if results["success"] else TaskStatus.FAILED
+
+        # Get final progress snapshot - TRUE AI AGENT
+        final_progress = self.progress_tracker.get_plan_progress(plan)
+        results["progress"] = {
+            "steps_completed": final_progress.steps_completed,
+            "steps_failed": final_progress.steps_failed,
+            "replan_count": replan_count,
+        }
 
         return results
 

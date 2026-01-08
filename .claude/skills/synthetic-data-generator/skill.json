@@ -1,0 +1,16 @@
+{
+  "name": "synthetic-data-generator",
+  "description": "Training data, labeling, augmentation expertise",
+  "type": "python",
+  "entryPoint": "skill.py",
+  "version": "1.0.0",
+  "category": "AI/ML Core",
+  "capabilities": [
+    "Synthetic data generation",
+    "Data augmentation strategies",
+    "Labeling workflow design",
+    "Data privacy preservation",
+    "Rare class simulation",
+    "Edge case generation"
+  ]
+}
