@@ -206,19 +206,28 @@ class TrueAIAgent:
         # Simple parsing (can be enhanced with LLM)
         request_lower = request.lower()
 
-        # Detect request type
-        request_type = RequestType.UNKNOWN
+        # Detect ALL request types present (for multi-objective requests)
+        detected_types = []
         if any(word in request_lower for word in ["generate", "create", "synthetic"]):
-            request_type = RequestType.DATA_GENERATION
-        elif any(word in request_lower for word in ["analyze", "examine", "study"]):
-            request_type = RequestType.DATA_ANALYSIS
-        elif any(word in request_lower for word in ["validate", "check", "verify"]):
-            request_type = RequestType.DATA_VALIDATION
-        elif any(word in request_lower for word in ["export", "save", "write"]):
-            request_type = RequestType.DATA_EXPORT
+            detected_types.append(RequestType.DATA_GENERATION)
+        if any(word in request_lower for word in ["analyze", "examine", "study"]):
+            detected_types.append(RequestType.DATA_ANALYSIS)
+        if any(word in request_lower for word in ["validate", "check", "verify"]):
+            detected_types.append(RequestType.DATA_VALIDATION)
+        if any(word in request_lower for word in ["export", "save", "write"]):
+            detected_types.append(RequestType.DATA_EXPORT)
 
-        # Extract basic entities
-        entities = {}
+        # Determine request type - MULTI_OBJECTIVE if multiple detected
+        if len(detected_types) > 1:
+            request_type = RequestType.MULTI_OBJECTIVE
+        elif len(detected_types) == 1:
+            request_type = detected_types[0]
+        else:
+            request_type = RequestType.UNKNOWN
+
+        # Store detected types for multi-objective planning
+        entities = {"detected_types": detected_types}
+
         if "csv" in request_lower:
             entities["format"] = "csv"
         if "json" in request_lower:
@@ -230,12 +239,18 @@ class TrueAIAgent:
         if count_match:
             entities["count"] = int(count_match.group(1))
 
+        # Extract path if mentioned
+        path_match = re.search(r'(?:to|as)\s+["\']?([^"\']+\.(?:csv|json|parquet))["\']?', request_lower)
+        if path_match:
+            entities["path"] = path_match.group(1)
+
         return ParsedRequest(
             original_text=request,
             intent="Generate synthetic data" if request_type == RequestType.DATA_GENERATION else request,
             request_type=request_type,
             entities=entities,
-            complexity=0.5,  # Can be improved with actual analysis
+            constraints=[],
+            complexity=0.5 if request_type == RequestType.MULTI_OBJECTIVE else 0.3,
             confidence=0.8,
         )
 
@@ -289,8 +304,78 @@ class TrueAIAgent:
         plan.goal = Goal(description=context.request.original_text)
 
         request_type = context.request.request_type
+        detected_types = context.request.entities.get("detected_types", [])
 
-        if request_type == RequestType.DATA_GENERATION:
+        # Handle multi-objective requests - TRUE AI AGENT BEHAVIOR
+        if request_type == RequestType.MULTI_OBJECTIVE:
+            steps = []
+            dependencies = []
+            generation_step_id = None  # Track the data generation step for export
+
+            # Create steps in logical order
+            for req_type in detected_types:
+                step = None
+                if req_type == RequestType.DATA_GENERATION:
+                    step = Step(
+                        action="generate_data",
+                        tool="DataGenerationTool",
+                        parameters={
+                            "data": context.working_variables.get("data"),
+                            "count": context.request.entities.get("count", 100),
+                        },
+                        dependencies=dependencies.copy(),
+                    )
+                    generation_step_id = step.step_id  # Save for export step
+                    last_step_id = step.step_id
+                    steps.append(step)
+                    dependencies = [last_step_id]  # Next steps depend on generation
+
+                elif req_type == RequestType.DATA_ANALYSIS:
+                    # Analyze can run in parallel with generation if data provided
+                    # Or depend on previous step
+                    step = Step(
+                        action="analyze_data",
+                        tool="DataAnalysisTool",
+                        parameters={"data": context.working_variables.get("data")},
+                        dependencies=dependencies.copy(),
+                    )
+                    last_step_id = step.step_id
+                    steps.append(step)
+                    # Keep dependencies for next step
+
+                elif req_type == RequestType.DATA_VALIDATION:
+                    # Validation needs both original and synthetic data
+                    # Use generation_step_id to get the actual generated data
+                    step = Step(
+                        action="validate_data",
+                        tool="DataValidationTool",
+                        parameters={
+                            "original": context.working_variables.get("data"),
+                            "synthetic": f"${generation_step_id}_result" if generation_step_id else None,
+                        },
+                        dependencies=[generation_step_id] if generation_step_id else [],
+                    )
+                    last_step_id = step.step_id
+                    steps.append(step)
+                    # Don't update dependencies - export should still use generation_step_id
+
+                elif req_type == RequestType.DATA_EXPORT:
+                    # Export the GENERATED data, not the validation results
+                    step = Step(
+                        action="export_data",
+                        tool="DataExportTool",
+                        parameters={
+                            "data": f"${generation_step_id}_result" if generation_step_id else None,
+                            "format": context.request.entities.get("format", "csv"),
+                            "path": context.request.entities.get("path", "output.csv"),
+                        },
+                        dependencies=[generation_step_id] if generation_step_id else [],
+                    )
+                    steps.append(step)
+
+            plan.steps = steps
+
+        elif request_type == RequestType.DATA_GENERATION:
             # Data generation plan
             # Get data from working variables (where context_params are stored)
             data = context.working_variables.get("data")

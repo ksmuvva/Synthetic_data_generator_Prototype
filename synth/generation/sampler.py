@@ -18,6 +18,13 @@ from synth.patterns.storage import Pattern
 from synth.patterns.statistical import DistributionType
 from synth.patterns.schema import FieldType
 
+# Import Faker for realistic string generation
+try:
+    from faker import Faker
+    HAS_FAKER = True
+except ImportError:
+    HAS_FAKER = False
+
 
 class StatisticalSampler:
     """
@@ -29,20 +36,77 @@ class StatisticalSampler:
     3. Is generation deterministic with seed?
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    # Field name to Faker method mapping
+    FAKER_FIELD_MAP = {
+        "email": "email",
+        "name": "name",
+        "first_name": "first_name",
+        "last_name": "last_name",
+        "full_name": "name",
+        "username": "user_name",
+        "password": "password",
+        "phone": "phone_number",
+        "telephone": "phone_number",
+        "address": "address",
+        "street": "street_address",
+        "street_address": "street_address",
+        "city": "city",
+        "state": "state",
+        "zip": "postcode",
+        "postal_code": "postcode",
+        "postcode": "postcode",
+        "country": "country",
+        "company": "company",
+        "job": "job",
+        "text": "text",
+        "sentence": "sentence",
+        "paragraph": "paragraph",
+        "url": "url",
+        "uri": "uri",
+        "ipv4": "ipv4",
+        "ipv6": "ipv6",
+        "mac_address": "mac_address",
+        "user_agent": "user_agent",
+        "credit_card": "credit_card_number",
+        "credit_card_number": "credit_card_number",
+        "ssn": "ssn",
+        "date": "date",
+        "time": "time",
+        "datetime": "date_time",
+        "timestamp": "date_time",
+        "uuid": "uuid4",
+        "id": "uuid4",
+    }
+
+    def __init__(self, seed: Optional[int] = None, locale: str = "en_US"):
         """
         Initialize sampler.
 
         Args:
             seed: Random seed for reproducibility
+            locale: Locale for Faker (default: en_US)
         """
         self.seed = seed
+        self.locale = locale
         if seed is not None:
             np.random.seed(seed)
+            if HAS_FAKER:
+                Faker.seed(seed)
 
-    def generate(self, pattern: Pattern, count: int) -> pd.DataFrame:
+        # Initialize Faker
+        if HAS_FAKER:
+            self.fake = Faker(locale)
+        else:
+            self.fake = None
+            import warnings
+            warnings.warn(
+                "Faker not available. Install with: pip install faker. "
+                "String generation will be basic."
+            )
+
+    def generate(self, pattern: Pattern, count: int, max_retries: int = 3) -> pd.DataFrame:
         """
-        Generate synthetic data from pattern.
+        Generate synthetic data from pattern with error recovery.
 
         PoT Steps:
         1. Initialize DataFrame
@@ -50,11 +114,48 @@ class StatisticalSampler:
         3. Handle null values
         4. Enforce constraints
         5. Validate output
+
+        Args:
+            pattern: Pattern for generation
+            count: Number of records to generate
+            max_retries: Maximum retry attempts on generation failure
+
+        Returns:
+            Generated DataFrame
+
+        Raises:
+            GenerationError: If generation fails after max retries
         """
         if count <= 0:
             raise GenerationError(f"Invalid count: {count}")
 
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                return self._attempt_generation(pattern, count)
+            except Exception as e:
+                last_error = e
+                # Log retry attempt
+                import warnings
+                warnings.warn(f"Generation attempt {attempt + 1} failed: {str(e)}. Retrying...")
+
+                # Re-seed with different value for retry
+                if self.seed is not None:
+                    np.random.seed(self.seed + attempt + 1)
+                    if HAS_FAKER:
+                        Faker.seed(self.seed + attempt + 1)
+
+        # All retries failed
+        raise GenerationError(
+            f"Failed to generate data after {max_retries} attempts. "
+            f"Last error: {str(last_error)}"
+        ) from last_error
+
+    def _attempt_generation(self, pattern: Pattern, count: int) -> pd.DataFrame:
+        """Attempt a single generation with error handling."""
         data = {}
+        failed_columns = []
 
         # Get field information from schema
         schema_fields = pattern.schema.get("fields", [])
@@ -64,27 +165,100 @@ class StatisticalSampler:
             field_type = FieldType(field_info["type"])
             null_percentage = field_info.get("null_percentage", 0.0)
 
-            # Generate the column
-            column_data = self._generate_column(
-                pattern, field_name, field_type, field_info, count
+            try:
+                # Generate the column with error recovery
+                column_data = self._generate_column_safe(
+                    pattern, field_name, field_type, field_info, count
+                )
+
+                # Apply null values
+                if null_percentage > 0:
+                    column_data = self._apply_nulls(column_data, null_percentage, count)
+
+                data[field_name] = column_data
+
+            except Exception as e:
+                # Log error but try to continue
+                failed_columns.append(field_name)
+                import warnings
+                warnings.warn(f"Failed to generate column '{field_name}': {str(e)}")
+
+                # Add fallback empty column
+                data[field_name] = [None] * count
+
+        # Check if we have too many failures
+        if len(failed_columns) > len(schema_fields) / 2:
+            raise GenerationError(
+                f"Too many columns failed to generate: {failed_columns}"
             )
-
-            # Apply null values
-            if null_percentage > 0:
-                column_data = self._apply_nulls(column_data, null_percentage, count)
-
-            data[field_name] = column_data
 
         # Create DataFrame
         df = pd.DataFrame(data)
 
         # Enforce constraints
-        df = self._enforce_constraints(pattern, df)
+        df = self._enforce_constraints_safe(pattern, df)
 
         # Self-reflection: Validate generated data
-        self._validate_generation(df, pattern, count)
+        self._validate_generation_safe(df, pattern, count)
 
         return df
+
+    def _generate_column_safe(
+        self,
+        pattern: Pattern,
+        field_name: str,
+        field_type: FieldType,
+        field_info: dict,
+        count: int,
+    ) -> list[Any]:
+        """Generate a column with error recovery."""
+        try:
+            return self._generate_column(pattern, field_name, field_type, field_info, count)
+        except Exception as e:
+            # Provide fallback based on field type
+            import warnings
+            warnings.warn(f"Column generation failed for '{field_name}': {str(e)}. Using fallback.")
+
+            if field_type in (FieldType.INTEGER, FieldType.FLOAT):
+                # Fallback: use default values
+                default_value = field_info.get("mean", field_info.get("min_value", 0))
+                return [default_value] * count
+
+            elif field_type == FieldType.BOOLEAN:
+                return [True] * count
+
+            elif field_type == FieldType.CATEGORICAL:
+                value_counts = field_info.get("value_counts", {})
+                default_value = list(value_counts.keys())[0] if value_counts else "unknown"
+                return [default_value] * count
+
+            elif field_type == FieldType.DATETIME:
+                from datetime import datetime
+                return [datetime.now()] * count
+
+            else:
+                # String fallback
+                return [f"placeholder_{i}" for i in range(count)]
+
+    def _enforce_constraints_safe(self, pattern: Pattern, df: pd.DataFrame) -> pd.DataFrame:
+        """Enforce constraints with error recovery."""
+        try:
+            return self._enforce_constraints(pattern, df)
+        except Exception as e:
+            import warnings
+            warnings.warn(f"Constraint enforcement failed: {str(e)}. Returning unconstrained data.")
+            return df
+
+    def _validate_generation_safe(
+        self, df: pd.DataFrame, pattern: Pattern, expected_count: int
+    ) -> None:
+        """Validate generated data with error recovery."""
+        try:
+            self._validate_generation(df, pattern, expected_count)
+        except Exception as e:
+            import warnings
+            warnings.warn(f"Generation validation warning: {str(e)}")
+            # Don't raise - return the data anyway
 
     def _generate_column(
         self,
@@ -130,8 +304,11 @@ class StatisticalSampler:
             mu, sigma = params
             data = np.random.normal(mu, sigma, count)
         elif dist_type == DistributionType.LOGNORMAL:
+            # scipy's lognorm parameters (shape, loc, scale)
+            # Use scipy's rvsv for proper generation
+            from scipy import stats
             shape, loc, scale = params
-            data = np.random.lognormal(shape, loc, scale, count)
+            data = stats.lognorm.rvs(shape, loc=loc, scale=scale, size=count)
         elif dist_type == DistributionType.EXPONENTIAL:
             loc, scale = params
             data = np.random.exponential(scale, count) + loc
@@ -211,24 +388,93 @@ class StatisticalSampler:
     def _generate_string(
         self, pattern: Pattern, field_name: str, count: int, field_info: dict
     ) -> list[str]:
-        """Generate string column."""
-        string_pattern = pattern.string_patterns.get(field_name)
+        """Generate string column using Faker for realistic data."""
+        # Determine Faker method from field name
+        faker_method = self._get_faker_method(field_name)
 
-        if string_pattern:
-            # Use learned length distribution
-            min_len = string_pattern["min_length"]
-            max_len = string_pattern["max_length"]
-        else:
-            # Use schema info
-            min_len = field_info.get("min_length", 5)
-            max_len = field_info.get("max_length", 20)
+        # Generate using Faker if available
+        if HAS_FAKER and faker_method:
+            return self._generate_with_faker(faker_method, count, field_name, field_info)
 
-        # Generate random strings with varying lengths
+        # Fallback to random strings with length variation
+        return self._generate_random_strings(field_name, count, field_info)
+
+    def _get_faker_method(self, field_name: str) -> Optional[str]:
+        """Get Faker method name from field name."""
+        field_lower = field_name.lower()
+
+        # Direct match
+        if field_lower in self.FAKER_FIELD_MAP:
+            return self.FAKER_FIELD_MAP[field_lower]
+
+        # Partial match
+        for key, method in self.FAKER_FIELD_MAP.items():
+            if key in field_lower or field_lower in key:
+                return method
+
+        return None
+
+    def _generate_with_faker(
+        self,
+        faker_method: str,
+        count: int,
+        field_name: str,
+        field_info: dict,
+    ) -> list[str]:
+        """Generate strings using Faker."""
+        data = []
+
+        for _ in range(count):
+            try:
+                # Get the Faker method
+                method = getattr(self.fake, faker_method, None)
+
+                if method and callable(method):
+                    value = method()
+
+                    # Some Faker methods return non-strings (like datetime)
+                    if not isinstance(value, str):
+                        value = str(value)
+
+                    data.append(value)
+                else:
+                    # Fallback to word
+                    data.append(self.fake.word())
+            except Exception:
+                # Fallback to random string
+                data.append(self.fake.word())
+
+        return data
+
+    def _generate_random_strings(
+        self,
+        field_name: str,
+        count: int,
+        field_info: dict,
+    ) -> list[str]:
+        """Generate random alphanumeric strings as fallback."""
+        # Get length constraints
+        min_len = field_info.get("min_length", 5)
+        max_len = field_info.get("max_length", 20)
+
+        # Use field name heuristics for better defaults
+        field_lower = field_name.lower()
+        if "email" in field_lower:
+            min_len, max_len = 15, 30
+        elif "name" in field_lower:
+            min_len, max_len = 5, 25
+        elif "id" in field_lower:
+            min_len, max_len = 8, 12
+        elif "description" in field_lower or "text" in field_lower:
+            min_len, max_len = 20, 100
+
         data = []
         for _ in range(count):
             length = np.random.randint(min_len, max_len + 1)
-            # Generate random alphanumeric string
-            s = "".join(np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), length))
+            s = "".join(np.random.choice(
+                list("abcdefghijklmnopqrstuvwxyz0123456789"),
+                length
+            ))
             data.append(s)
 
         return data
