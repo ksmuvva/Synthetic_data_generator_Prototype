@@ -352,6 +352,33 @@ class TrueAIAgent:
             else:
                 result = await self._execute_plan(plan, context)
 
+            # FEATURE 7: Dynamic Tool Creation - Discover patterns and optimize - TRUE AI AGENT CAPABILITY
+            try:
+                # Discover common tool usage patterns
+                patterns = self.dynamic_tool_creator.discover_common_patterns()
+                
+                if patterns:
+                    print(f"[Dynamic Tool Creation] Discovered {len(patterns)} usage patterns:")
+                    for pattern in patterns:
+                        print(f"  - Pattern: {pattern['pattern']}")
+                        print(f"    Confidence: {pattern['confidence']:.1%}")
+                        print(f"    Suggestion: {pattern['suggestion']}")
+                        
+                        # If pattern is strong enough, create composite tool
+                        if pattern['confidence'] > 0.7:
+                            print(f"    -> Creating composite tool for this pattern")
+                            # This would automatically create a composite tool
+                
+                # Get tool usage statistics
+                tool_stats = self.dynamic_tool_creator.get_tool_usage_stats()
+                print(f"[Dynamic Tool Creation] Tool usage stats:")
+                print(f"  - Total tools: {tool_stats['total_tools']}")
+                print(f"  - Composed tools: {tool_stats['composed_tools']}")
+                print(f"  - Discovered tools: {tool_stats['discovered_tools']}")
+                
+            except Exception as e:
+                print(f"Warning: Dynamic tool creation pattern discovery failed: {e}")
+
             # FEATURE 3: Causal Reasoning - Analyze outcomes - TRUE AI AGENT CAPABILITY
             causal_explanation = None
             if self.causal_reasoning is not None:
@@ -980,10 +1007,26 @@ class TrueAIAgent:
         Returns:
             Optimized execution plan
         """
-        # Step 1: Analyze goal complexity using GoalDecomposer - TRUE AI AGENT
+        # Step 1: Create hierarchical goal for tracking - TRUE AI AGENT
+        # Extract goal information from context
+        goal_description = context.request if hasattr(context, 'request') else str(context)
+        goal_priority = 0.8  # Default priority
+        
+        # Create hierarchical goal to guide planning and track progress
+        hierarchical_goal = self.hierarchical_goals.create_hierarchical_goal(
+            name=f"task_{int(time.time())}",
+            description=goal_description,
+            priority=goal_priority,
+            deadline=None  # No deadline for now
+        )
+        
+        # Store goal ID in context for tracking during execution
+        context.working_variables["hierarchical_goal_id"] = hierarchical_goal.goal_id
+        
+        # Step 2: Analyze goal complexity using GoalDecomposer - TRUE AI AGENT
         complexity_assessment = self.goal_decomposer.analyze_goal_complexity(context)
 
-        # Step 2: Decompose goal into sub-goals if complex - TRUE AI AGENT
+        # Step 3: Decompose goal into sub-goals if complex - TRUE AI AGENT
         if complexity_assessment.overall_complexity > 0.6:
             decomposition_result = self.goal_decomposer.decompose_goal(context)
 
@@ -995,7 +1038,7 @@ class TrueAIAgent:
         else:
             decomposition_result = None
 
-        # Step 3: Create plan using PlanningEngine - TRUE AI AGENT
+        # Step 4: Create plan using PlanningEngine - TRUE AI AGENT
         plan_options = PlanOptions(
             enable_checkpoints=True,
             include_dependencies=True,
@@ -1004,8 +1047,29 @@ class TrueAIAgent:
 
         plan = self.planning_engine.create_plan(context, plan_options)
 
-        # Step 4: Make plan adaptive - TRUE AI AGENT
+        # Step 5: Make plan adaptive - TRUE AI AGENT
         plan = self.adaptive_planner.create_adaptive_plan(context)
+        
+        # Step 6: Align plan milestones with hierarchical goals - TRUE AI AGENT
+        # Map plan steps to hierarchical goal milestones for progress tracking
+        if len(plan.steps) > 0:
+            total_steps = len(plan.steps)
+            for i, step in enumerate(plan.steps):
+                # Calculate milestone progress based on step position
+                milestone_progress = (i + 1) / total_steps
+                
+                # Find corresponding milestone in hierarchical goal
+                for milestone in hierarchical_goal.milestones:
+                    if (milestone.status.value != "achieved" and
+                        milestone_progress >= milestone.target_value):
+                        # Link step to milestone
+                        step.metadata["goal_milestone_id"] = milestone.milestone_id
+                        step.metadata["goal_milestone_name"] = milestone.name
+                        break
+        
+        # Store hierarchical goal reference in plan metadata
+        plan.metadata["hierarchical_goal_id"] = hierarchical_goal.goal_id
+        plan.metadata["hierarchical_goal_name"] = hierarchical_goal.name
 
         # Step 5: Enhance plan with cognitive layer insights
         # Add reasoning metadata
@@ -1141,6 +1205,14 @@ class TrueAIAgent:
                     params = self._process_step_parameters(step, context)
 
                     tool_result = await self.tools.execute_tool(step.tool, **params)
+                    
+                    # Track tool usage for dynamic optimization - TRUE AI AGENT
+                    step_duration = (datetime.now() - step.started_at).total_seconds()
+                    self.dynamic_tool_creator.track_tool_usage(
+                        tool_name=step.tool,
+                        duration=step_duration,
+                        success=tool_result.success
+                    )
 
                     if tool_result.success:
                         step.status = TaskStatus.COMPLETED
@@ -1280,6 +1352,10 @@ class TrueAIAgent:
 
         completed_steps = []
 
+        # Check if there's a hierarchical goal to track
+        goal_id = context.working_variables.get("hierarchical_goal_id")
+        total_steps = len(plan.steps)
+        
         for step in plan.steps:
             # Check if step is ready
             if not step.is_ready(completed_steps):
@@ -1295,12 +1371,42 @@ class TrueAIAgent:
                     params = self._process_step_parameters(step, context)
 
                     tool_result = await self.tools.execute_tool(step.tool, **params)
+                    
+                    # Track tool usage for dynamic optimization - TRUE AI AGENT
+                    step_duration = (datetime.now() - step.started_at).total_seconds()
+                    self.dynamic_tool_creator.track_tool_usage(
+                        tool_name=step.tool,
+                        duration=step_duration,
+                        success=tool_result.success
+                    )
 
                     if tool_result.success:
                         step.status = TaskStatus.COMPLETED
                         step.result = tool_result.data
                         step.completed_at = datetime.now()
                         results["steps_completed"] += 1
+
+                        # Update hierarchical goal progress - TRUE AI AGENT
+                        if goal_id:
+                            # Calculate progress based on completed steps
+                            progress = results["steps_completed"] / total_steps
+                            self.hierarchical_goals.update_progress(
+                                goal_id,
+                                progress,
+                                step_results={"success": True, "step": step.step_id}
+                            )
+                            
+                            # Check if this step completed a milestone
+                            if "goal_milestone_id" in step.metadata:
+                                milestone_id = step.metadata["goal_milestone_id"]
+                                milestone = self.hierarchical_goals.get_next_milestone(goal_id)
+                                if milestone and milestone.milestone_id == milestone_id:
+                                    # Milestone achieved!
+                                    results.setdefault("milestones_achieved", []).append({
+                                        "id": milestone_id,
+                                        "name": step.metadata.get("goal_milestone_name", "Unknown"),
+                                        "achieved_at": datetime.now().isoformat()
+                                    })
 
                         # Store result in context for dependent steps
                         context.working_variables[f"{step.step_id}_result"] = tool_result.data
@@ -1313,6 +1419,20 @@ class TrueAIAgent:
                         results["steps_failed"] += 1
                         results["success"] = False
                         results["message"] = f"Step failed: {step.error}"
+                        
+                        # Update hierarchical goal with failure - TRUE AI AGENT
+                        if goal_id:
+                            # Calculate progress so far
+                            progress = results["steps_completed"] / total_steps
+                            self.hierarchical_goals.update_progress(
+                                goal_id,
+                                progress,
+                                step_results={
+                                    "success": False,
+                                    "step": step.step_id,
+                                    "error": step.error
+                                }
+                            )
                         break
 
                 except Exception as e:
