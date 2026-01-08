@@ -215,6 +215,20 @@ class TrueAIAgent:
         # 8. Memory - Semantic search
         self.semantic_memory = SemanticMemoryEngine(storage_path=f"{storage_path}/semantic_memory", memory_layer=self.memory)
 
+        # NEW: Enhanced Context Management
+        try:
+            from synth.agent.context import ContextManager
+            self.context_manager = ContextManager(
+                memory_layer=self.memory,
+                llm_provider=self.llm,
+                storage_path=f"{storage_path}/context",
+                enable_persistence=True,
+                enable_enrichment=True,
+            )
+        except ImportError:
+            # Fallback if context manager not available
+            self.context_manager = None
+
         # Agent state
         self._initialized = False
         self._request_count = 0
@@ -559,15 +573,34 @@ class TrueAIAgent:
         context_params: Optional[Dict[str, Any]],
     ) -> Context:
         """Build full context for decision making."""
-        # Get conversation history
-        conversation_history = self.memory.get_conversation_history(5)
+        # Use enhanced context manager if available
+        if self.context_manager:
+            # Create rich context with semantic enrichment
+            context = self.context_manager.create_context(
+                request=parsed_request,
+                additional_context=context_params,
+            )
 
-        return Context(
-            request=parsed_request,
-            environment=environment,
-            conversation_history=conversation_history,
-            working_variables=context_params or {},
-        )
+            # Override environment with provided one
+            context.environment = environment
+
+            # Log context insights for transparency
+            insights = self.context_manager.get_context_insights()
+            if insights:
+                context.working_variables["context_insights"] = insights
+
+            return context
+        else:
+            # Fallback to basic context building
+            # Get conversation history
+            conversation_history = self.memory.get_conversation_history(5)
+
+            return Context(
+                request=parsed_request,
+                environment=environment,
+                conversation_history=conversation_history,
+                working_variables=context_params or {},
+            )
 
     async def _create_plan(self, context: Context) -> Plan:
         """
