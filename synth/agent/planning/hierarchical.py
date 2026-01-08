@@ -463,9 +463,8 @@ class HierarchicalGoalManager:
             "priority": goal.priority,
             "sub_goals": [
                 {
-                    "id": sg.sub_goal_id,
+                    "id": sg.goal_id,
                     "description": sg.description,
-                    "status": sg.status.value,
                     "priority": sg.priority,
                 }
                 for sg in goal.sub_goals
