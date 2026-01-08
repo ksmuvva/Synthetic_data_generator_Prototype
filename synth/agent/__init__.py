@@ -1,66 +1,24 @@
 """
-AI Agent for Synth - LLM-Powered.
+AI Agent components for SYNTH.
 
-Provides conversational interface for synthetic data generation
-using LLM providers (Claude, OpenAI, Gemini).
+Transforms SYNTH from a tool to a True AI Agent with:
+- Autonomous decision making
+- Persistent memory
+- Multi-step planning
+- Tool use
+- Self-correction
+- Proactive behavior
 """
 
-# State management (shared)
-from synth.agent.state import (
-    ConversationState,
-    Message,
-    MessageRole,
-    ParsedIntent,
-    IntentType,
-    FieldSpec,
-    Constraint,
-)
+from synth.agent.true_ai_agent import TrueAIAgent
+from synth.agent.cognitive import CognitiveLayer
+from synth.agent.memory import MemoryLayer
+from synth.agent.tools import ToolRegistry
 
-# LLM components
-from synth.agent.llm.session import TrueAIAgent
-from synth.agent.llm.parser import LLMIntentParser, LLMReasoningEngine
-from synth.agent.llm.wizard import run_setup_wizard, SetupWizard
-from synth.agent.llm import (
-    LLMMessage,
-    LLMResponse,
-    LLMProvider,
-    ClaudeProvider,
-    OpenAIProvider,
-    GeminiProvider,
-    get_llm_provider,
-)
-
-# Schema builder (shared)
-from synth.agent.schema_builder import SchemaBuilder
-
-# Templates (shared)
-from synth.agent.templates.base import get_template_library
-
+__version__ = "2.0.0"
 __all__ = [
-    # LLM Agent
     "TrueAIAgent",
-    # Setup Wizard
-    "run_setup_wizard",
-    "SetupWizard",
-    # LLM Components
-    "LLMIntentParser",
-    "LLMReasoningEngine",
-    "LLMMessage",
-    "LLMResponse",
-    "LLMProvider",
-    "ClaudeProvider",
-    "OpenAIProvider",
-    "GeminiProvider",
-    "get_llm_provider",
-    # State
-    "ConversationState",
-    "Message",
-    "MessageRole",
-    "ParsedIntent",
-    "IntentType",
-    "FieldSpec",
-    "Constraint",
-    # Schema & Templates
-    "SchemaBuilder",
-    "get_template_library",
+    "CognitiveLayer",
+    "MemoryLayer",
+    "ToolRegistry",
 ]
