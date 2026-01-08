@@ -1,7 +1,7 @@
 """
 Memory layer - unifies short-term and long-term memory.
 
-Provides a single interface for all memory operations.
+Provides a single interface for all memory operations with vector-based similarity search.
 """
 
 from typing import Optional, List, Dict, Any
@@ -9,6 +9,7 @@ from datetime import datetime
 
 from synth.agent.memory.short_term import ShortTermMemory
 from synth.agent.memory.long_term import LongTermMemory
+from synth.agent.memory.vector_store import VectorStore
 from synth.agent.models.core import (
     ParsedRequest,
     Context,
@@ -21,21 +22,49 @@ from synth.agent.models.core import (
 
 class MemoryLayer:
     """
-    Unified memory layer.
+    Unified memory layer with vector-based similarity search.
 
-    Combines short-term and long-term memory into a single interface.
+    Combines short-term and long-term memory into a single interface,
+    enhanced with semantic search capabilities.
     """
 
-    def __init__(self, storage_path: str = ".agent_memory", max_turns: int = 100):
+    def __init__(
+        self,
+        storage_path: str = ".agent_memory",
+        max_turns: int = 100,
+        enable_vector_search: bool = True,
+        embedding_model: Optional[str] = None,
+        llm_provider: Optional[Any] = None,
+    ):
         """
         Initialize memory layer.
 
         Args:
             storage_path: Path for persistent storage
             max_turns: Maximum conversation turns to keep in short-term memory
+            enable_vector_search: Enable vector-based similarity search
+            embedding_model: Sentence transformer model name
+            llm_provider: LLM provider for embeddings (optional)
         """
         self.short_term = ShortTermMemory(max_turns=max_turns)
         self.long_term = LongTermMemory(storage_path=storage_path)
+
+        # Initialize vector store for semantic search - TRUE AI AGENT CAPABILITY
+        self.enable_vector_search = enable_vector_search
+        self.vector_store = None
+
+        if enable_vector_search:
+            try:
+                use_llm_embeddings = llm_provider is not None
+                self.vector_store = VectorStore(
+                    storage_path=storage_path,
+                    embedding_model=embedding_model,
+                    use_llm_embeddings=use_llm_embeddings,
+                    llm_provider=llm_provider,
+                )
+            except Exception as e:
+                print(f"Warning: Vector store initialization failed: {e}. Using keyword search.")
+                self.vector_store = None
 
     # Conversation Management
     def store_conversation_turn(
@@ -207,18 +236,47 @@ class MemoryLayer:
 
     # Similar Situations
     def find_similar_situations(
-        self, request: str, max_results: int = 5
+        self,
+        request: str,
+        max_results: int = 5,
+        request_type_filter: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Find similar past situations.
+        Find similar past situations using vector-based semantic search.
 
         Args:
             request: Current request
             max_results: Maximum number of results
+            request_type_filter: Optional filter by request type
 
         Returns:
-            List of similar interactions
+            List of similar interactions with similarity scores
         """
+        # Try vector store first - TRUE AI AGENT CAPABILITY
+        if self.vector_store is not None:
+            try:
+                similar_results = self.vector_store.find_similar(
+                    request,
+                    max_results=max_results,
+                    request_type_filter=request_type_filter,
+                )
+
+                # Convert to expected format with similarity scores
+                results = []
+                for similarity, interaction in similar_results:
+                    results.append({
+                        "similarity": similarity,
+                        "request": interaction.request,
+                        "response": interaction.response,
+                        "metadata": interaction.metadata,
+                        "timestamp": interaction.timestamp,
+                        "request_type": interaction.request_type,
+                    })
+                return results
+            except Exception as e:
+                print(f"Warning: Vector search failed: {e}. Falling back to keyword search.")
+
+        # Fall back to keyword matching
         return self.long_term.find_similar_requests(request, max_results)
 
     # Interaction Recording
@@ -229,18 +287,32 @@ class MemoryLayer:
         metadata: Dict[str, Any],
     ) -> None:
         """
-        Record interaction for learning.
+        Record interaction for learning with vector embedding.
 
         Args:
             request: Parsed request
             response: Agent response
             metadata: Additional metadata
         """
+        # Record in long-term memory
         self.long_term.record_interaction(
             request.original_text,
             response,
             metadata,
         )
+
+        # Add to vector store if available - TRUE AI AGENT CAPABILITY
+        if self.vector_store is not None:
+            try:
+                self.vector_store.add_interaction(
+                    request=request.original_text,
+                    response=response,
+                    metadata=metadata,
+                    request_type=request.request_type.value if request.request_type else None,
+                    entities=request.entities if hasattr(request, 'entities') else None,
+                )
+            except Exception as e:
+                print(f"Warning: Failed to add to vector store: {e}")
 
     # User Preferences
     def store_preferences(self, user_id: str, preferences: Dict[str, Any]) -> None:

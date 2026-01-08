@@ -10,6 +10,10 @@ from synth.agent.reasoning.engine import (
     ReasoningEngine,
     ReasoningResult,
 )
+from synth.agent.reasoning.llm_engine import (
+    LLMReasoningEngine,
+    LLMReasoningResult,
+)
 
 __all__ = [
     "ProblemAnalyzer",
@@ -18,4 +22,6 @@ __all__ = [
     "ProblemComplexity",
     "ReasoningEngine",
     "ReasoningResult",
+    "LLMReasoningEngine",
+    "LLMReasoningResult",
 ]

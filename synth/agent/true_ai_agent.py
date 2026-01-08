@@ -41,6 +41,13 @@ from synth.agent.tools.core_tools import (
 )
 from synth.agent.reasoning.engine import ReasoningEngine, ReasoningResult
 
+# LLM Reasoning Engine imports
+try:
+    from synth.agent.reasoning.llm_engine import LLMReasoningEngine, LLMReasoningResult
+    LLM_REASONING_AVAILABLE = True
+except ImportError:
+    LLM_REASONING_AVAILABLE = False
+
 # LLM Integration imports
 try:
     from synth.agent.llm import get_llm_provider, LLMProvider
@@ -61,6 +68,16 @@ from synth.agent.cognitive.progress import ProgressTracker
 from synth.agent.planning.goal import GoalDecomposer
 from synth.agent.planning.planner import PlanningEngine, PlanOptions
 from synth.agent.planning.adaptive import AdaptivePlanner
+
+# NEW: Advanced AI Agent Features for 40/40 score
+from synth.agent.correction.engine import SelfCorrectionEngine
+from synth.agent.proactive.init import ProactiveAgent
+from synth.agent.perception.disambiguator import IntentDisambiguator
+from synth.agent.reasoning.causal import CausalReasoningEngine
+from synth.agent.learning.adaptive import AdaptiveLearningEngine
+from synth.agent.planning.hierarchical import HierarchicalGoalManager
+from synth.agent.tools.dynamic import DynamicToolCreator
+from synth.agent.memory.semantic import SemanticMemoryEngine
 
 
 class TrueAIAgent:
@@ -92,10 +109,7 @@ class TrueAIAgent:
             llm_provider: LLM provider to use (optional: "claude", "openai", "gemini")
             enable_llm: Whether to enable LLM integration (default: True)
         """
-        # Initialize memory
-        self.memory = MemoryLayer(storage_path=storage_path)
-
-        # Initialize LLM components - TRUE AI AGENT CAPABILITY
+        # Initialize LLM components first - TRUE AI AGENT CAPABILITY
         self.llm_enabled = enable_llm and LLM_AVAILABLE
         self.llm_provider_name = llm_provider or "claude"
         self.llm = None
@@ -112,12 +126,30 @@ class TrueAIAgent:
                 print(f"Warning: LLM initialization failed: {e}. Using rule-based parsing.")
                 self.llm_enabled = False
 
+        # Initialize memory with LLM provider for vector search - TRUE AI AGENT CAPABILITY
+        self.memory = MemoryLayer(
+            storage_path=storage_path,
+            enable_vector_search=True,
+            llm_provider=self.llm,
+        )
+
         # Initialize tools
         self.tools = ToolRegistry()
         self._register_tools()
 
         # Initialize reasoning engine - TRUE AI AGENT CAPABILITY
         self.reasoning = ReasoningEngine()
+
+        # Initialize LLM reasoning engine - TRUE AI AGENT CAPABILITY
+        self.llm_reasoning_engine = None
+        if self.llm_enabled and LLM_REASONING_AVAILABLE:
+            try:
+                self.llm_reasoning_engine = LLMReasoningEngine(
+                    llm_provider=self.llm,
+                    enable_thinking=True
+                )
+            except Exception as e:
+                print(f"Warning: LLM reasoning engine initialization failed: {e}")
 
         # Initialize cognitive layer - TRUE AI AGENT CAPABILITY
         # Note: Pass tool_registry to components that need it

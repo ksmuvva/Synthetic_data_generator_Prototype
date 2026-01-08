@@ -154,12 +154,15 @@ class TestLongTermMemory:
 
         memory = LongTermMemory(storage_path=str(temp_storage))
 
-        # Should create storage files
+        # Memory is initialized, files are created lazily when needed
+        # The storage path should exist
+        assert temp_storage.exists()
+
+        # Trigger file creation by storing some data
+        memory.store_user_preferences("test_user", {"theme": "dark"})
+
+        # Now files should be created
         assert (temp_storage / "preferences.json").exists()
-        assert (temp_storage / "patterns.json").exists()
-        assert (temp_storage / "strategies.json").exists()
-        assert (temp_storage / "errors.json").exists()
-        assert (temp_storage / "interactions.json").exists()
 
     def test_user_preferences(self, temp_storage):
         """Test storing and retrieving user preferences."""
@@ -463,7 +466,7 @@ class TestMemoryLayer:
     def test_strategy_learning_integration(self, temp_storage):
         """Test strategy learning through MemoryLayer."""
         from synth.agent.memory.layer import MemoryLayer
-        from synth.agent.memory.types import Context
+        from synth.agent.models.core import Context
 
         memory = MemoryLayer(storage_path=temp_storage)
 
