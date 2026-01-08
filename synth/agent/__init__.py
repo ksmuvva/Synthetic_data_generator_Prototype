@@ -39,6 +39,11 @@ from synth.agent.factory import (
     create_agent,
     quick_start,
 )
+from synth.agent.context import (
+    ContextManager,
+    ContextBuilder,
+    ContextEnricher,
+)
 
 __version__ = "2.0.0"
 __all__ = [
@@ -57,4 +62,9 @@ __all__ = [
     "create_conversation_agent",
     "create_agent",
     "quick_start",
+
+    # Context management
+    "ContextManager",
+    "ContextBuilder",
+    "ContextEnricher",
 ]
