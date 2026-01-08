@@ -212,8 +212,6 @@ class TrueAIAgent:
         self.hierarchical_goals = HierarchicalGoalManager(max_hierarchy_depth=3)
         # 7. Tool Use - Dynamic tool creation
         self.dynamic_tool_creator = DynamicToolCreator(tool_registry=self.tools)
-        # 8. Memory - Semantic search
-        self.semantic_memory = SemanticMemoryEngine(storage_path=f"{storage_path}/semantic_memory", memory_layer=self.memory)
 
         # NEW: Enhanced Context Management
         try:
@@ -229,10 +227,36 @@ class TrueAIAgent:
             # Fallback if context manager not available
             self.context_manager = None
 
+        # NEW: Enhanced Semantic Memory with context storage/retrieval
+        try:
+            from synth.agent.memory import SemanticMemory
+            self.semantic_memory_v2 = SemanticMemory(
+                storage_path=f"{storage_path}/semantic_memory_v2",
+                llm_provider=self.llm,
+                consolidation_interval_hours=24,
+                max_memories=10000,
+            )
+        except ImportError:
+            # Fallback to old semantic memory
+            self.semantic_memory_v2 = None
+
+        # NEW: Enhanced Proactive Agent with intelligent unsolicited suggestions
+        try:
+            from synth.agent.proactive import SmartProactiveAgent
+            self.smart_proactive = SmartProactiveAgent(
+                suggestion_queue_size=50,
+                pattern_learning_enabled=True,
+                min_confidence_threshold=0.5,
+            )
+        except ImportError:
+            # Fallback to old proactive agent
+            self.smart_proactive = None
+
         # Agent state
         self._initialized = False
         self._request_count = 0
         self._start_time = datetime.now()
+        self._last_ambiguities = []  # Track intent ambiguities
 
     def _register_tools(self):
         """Register all available tools."""
@@ -316,8 +340,17 @@ class TrueAIAgent:
             # 3b. Create plan informed by reasoning - TRUE AI AGENT
             plan = await self._create_plan_with_reasoning(context, reasoning_result)
 
-            # Step 4: Act - Execute the plan
-            result = await self._execute_plan(plan, context)
+            # Step 4: Act - Execute the plan with Self-Correction
+            # FEATURE 2: Self-Correction Engine - TRUE AI AGENT CAPABILITY
+            if self.correction_engine is not None:
+                try:
+                    # Wrap execution with self-correction for automatic error recovery
+                    result = await self._execute_with_self_correction(plan, context)
+                except Exception as e:
+                    print(f"Warning: Self-correction wrapper failed: {e}. Falling back to standard execution.")
+                    result = await self._execute_plan(plan, context)
+            else:
+                result = await self._execute_plan(plan, context)
 
             # Step 5: Learn - Store outcomes in memory
             await self._learn_from_outcome(parsed_request, result, context)
@@ -387,8 +420,39 @@ class TrueAIAgent:
         - Constraints
         - Parameters
 
-        Uses LLM-powered parsing when available, with fallback to rule-based.
+        Pipeline:
+        1. FEATURE: Intent Disambiguation - detect and resolve ambiguities
+        2. LLM-powered parsing (when available)
+        3. Rule-based fallback
         """
+        # FEATURE 1: Intent Disambiguation - TRUE AI AGENT CAPABILITY
+        if self.intent_disambiguator is not None:
+            try:
+                disambiguated_result, ambiguities = self.intent_disambiguator.analyze_request(
+                    request,
+                    None  # conversation history
+                )
+                # Store ambiguities in context for later use
+                self._last_ambiguities = ambiguities
+
+                # Convert disambiguated result to ParsedRequest
+                parsed = await self._parse_request_rule_based(disambiguated_result.resolved_intent)
+                # Override with higher confidence from disambiguation
+                parsed.confidence = max(parsed.confidence, disambiguated_result.confidence)
+
+                # Log ambiguity resolution for transparency
+                if ambiguities:
+                    print(f"[Intent Disambiguation] Resolved {len(ambiguities)} ambiguities:")
+                    for amb in ambiguities:
+                        print(f"  - {amb.ambiguity_type.value}: '{amb.ambiguous_text}'")
+                    print(f"  -> Resolved intent: {disambiguated_result.resolved_intent}")
+                    print(f"  -> Confidence: {disambiguated_result.confidence:.1%}")
+
+                return parsed
+
+            except Exception as e:
+                print(f"Warning: Intent disambiguation failed: {e}. Proceeding with standard parsing.")
+
         # Try LLM-powered parsing first - TRUE AI AGENT CAPABILITY
         if self.llm_enabled and self.llm_parser:
             try:
@@ -1224,12 +1288,37 @@ class TrueAIAgent:
             }
             self.memory.learn_strategy_outcome(strategy, context, True, metrics)
 
+        # Store semantic context in enhanced semantic memory
+        if self.semantic_memory_v2:
+            outcome = "success" if result.get("success") else "failure"
+            self.semantic_memory_v2.store_context(
+                context=context,
+                outcome=outcome,
+                importance=None,  # Auto-calculate
+            )
+
     async def _generate_suggestions(
         self, context: Context, result: Dict[str, Any]
     ) -> List[Suggestion]:
         """Generate proactive suggestions."""
         suggestions = []
 
+        # Generate intelligent proactive suggestions using SmartProactiveAgent
+        if self.smart_proactive:
+            try:
+                proactive_suggestions = await self.smart_proactive.analyze_and_suggest(
+                    context=context,
+                    force_analysis=False,
+                )
+
+                # Convert ProactiveSuggestion to base Suggestion
+                for ps in proactive_suggestions[:5]:  # Top 5 suggestions
+                    suggestions.append(ps.to_suggestion())
+
+            except Exception as e:
+                print(f"Warning: Smart proactive agent failed: {e}")
+
+        # Legacy suggestions (fallback)
         # Suggest validation if data was generated
         if context.request.request_type == RequestType.DATA_GENERATION:
             suggestions.append(Suggestion(

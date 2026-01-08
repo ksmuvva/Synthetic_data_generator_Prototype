@@ -6,10 +6,20 @@ from synth.agent.proactive.enhanced import (
     Opportunity,
     OpportunityType,
 )
+from synth.agent.proactive.smart_agent import (
+    SmartProactiveAgent,
+    ProactiveSuggestion,
+    SuggestionUrgency,
+    SuggestionCategory,
+)
 
 __all__ = [
     "ProactiveEngine",
     "EnhancedProactiveEngine",
     "Opportunity",
     "OpportunityType",
+    "SmartProactiveAgent",
+    "ProactiveSuggestion",
+    "SuggestionUrgency",
+    "SuggestionCategory",
 ]
