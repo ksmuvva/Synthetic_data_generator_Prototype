@@ -13,8 +13,94 @@ from dataclasses import dataclass
 import inspect
 import asyncio
 
-from synth.agent.tools.registry import ToolRegistry, Tool, ToolResult
+from synth.agent.tools.registry import ToolRegistry, Tool, ToolResult, ToolParameter
 from synth.agent.models.core import Context
+
+
+class CompositeTool(Tool):
+    """A composite tool that executes multiple tools in sequence."""
+
+    def __init__(self, name: str, description: str, workflow: List[Dict[str, Any]], tool_registry: ToolRegistry):
+        """Initialize composite tool."""
+        super().__init__()
+        self._name = name
+        self._description = description
+        self._workflow = workflow
+        self._tool_registry = tool_registry
+        self._parameters = {
+            "context": ToolParameter(
+                name="context",
+                type="object",
+                description="Execution context",
+                required=False,
+            )
+        }
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Execute the composite workflow."""
+        context = kwargs.get("context")
+        results = {}
+        last_result = None
+
+        for step in self._workflow:
+            tool_name = step.get("tool")
+            step_params = step.get("parameters", {})
+
+            # Resolve parameter references
+            resolved_params = self._resolve_parameters(step_params, results, kwargs)
+
+            # Execute tool
+            tool_result = await self._tool_registry.execute_tool(
+                tool_name,
+                context=context,
+                **resolved_params
+            )
+
+            # Store result for next steps
+            step_name = step.get("name", tool_name)
+            results[step_name] = tool_result.data
+            last_result = tool_result
+
+            if not tool_result.success and step.get("required", True):
+                return ToolResult(
+                    success=False,
+                    data=None,
+                    error=tool_result.error,
+                    message=f"Composite workflow failed at step: {step_name}",
+                )
+
+        return ToolResult(
+            success=True,
+            data=last_result.data if last_result else results,
+            message=f"Composite tool {self._name} completed successfully",
+        )
+
+    def validate_parameters(self, **kwargs) -> bool:
+        """Validate tool parameters."""
+        # For composite tools, just check if context is provided when needed
+        return True
+
+    def _resolve_parameters(
+        self,
+        params: Dict[str, Any],
+        step_results: Dict[str, Any],
+        original_kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Resolve parameter references."""
+        resolved = {}
+
+        for key, value in params.items():
+            if isinstance(value, str) and value.startswith("$"):
+                # Reference to previous step result
+                ref = value[1:]
+                if ref in step_results:
+                    resolved[key] = step_results[ref]
+                elif ref in original_kwargs:
+                    resolved[key] = original_kwargs[ref]
+            else:
+                resolved[key] = value
+
+        return resolved
 
 
 @dataclass
@@ -156,85 +242,18 @@ class DynamicToolCreator:
 
     def _create_composite_tool(self, composition: ToolComposition) -> Tool:
         """Create a tool from composition."""
-
-        async def composite_function(**kwargs):
-            """Execute the composite workflow."""
-            context = kwargs.get("context")
-            results = {}
-            last_result = None
-
-            for step in composition.workflow:
-                tool_name = step.get("tool")
-                step_params = step.get("parameters", {})
-
-                # Resolve parameter references
-                resolved_params = self._resolve_parameters(step_params, results, kwargs)
-
-                # Execute tool
-                tool_result = await self.tool_registry.execute_tool(
-                    tool_name,
-                    context=context,
-                    **resolved_params
-                )
-
-                # Store result for next steps
-                step_name = step.get("name", tool_name)
-                results[step_name] = tool_result.data
-                last_result = tool_result
-
-                if not tool_result.success and step.get("required", True):
-                    return ToolResult(
-                        success=False,
-                        data=None,
-                        error=tool_result.error,
-                        message=f"Composite workflow failed at step: {step_name}",
-                    )
-
-            return ToolResult(
-                success=True,
-                data=last_result.data if last_result else results,
-                message=f"Composite tool {composition.name} completed successfully",
-            )
-
-        # Create tool
-        tool = Tool(
+        # Create composite tool
+        tool = CompositeTool(
             name=composition.name,
             description=composition.description,
-            parameters={
-                "type": "object",
-                "properties": {
-                    "context": {"type": "object"},
-                },
-            },
-            function=composite_function,
+            workflow=composition.workflow,
+            tool_registry=self.tool_registry,
         )
 
         # Register tool
         self.tool_registry.register_tool(tool)
 
         return tool
-
-    def _resolve_parameters(
-        self,
-        params: Dict[str, Any],
-        step_results: Dict[str, Any],
-        original_kwargs: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Resolve parameter references."""
-        resolved = {}
-
-        for key, value in params.items():
-            if isinstance(value, str) and value.startswith("$"):
-                # Reference to previous step result
-                ref = value[1:]
-                if ref in step_results:
-                    resolved[key] = step_results[ref]
-                elif ref in original_kwargs:
-                    resolved[key] = original_kwargs[ref]
-            else:
-                resolved[key] = value
-
-        return resolved
 
     def discover_common_patterns(self) -> List[Dict[str, Any]]:
         """
