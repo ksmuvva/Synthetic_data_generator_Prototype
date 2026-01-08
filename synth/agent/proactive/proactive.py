@@ -76,7 +76,7 @@ class ProactiveAgent:
         suggestions = []
 
         # Check conversation history for patterns
-        history = context.get("conversation_history", [])
+        history = context.conversation_history if hasattr(context, 'conversation_history') else []
 
         # Count request types
         request_counts = {}
@@ -90,7 +90,7 @@ class ProactiveAgent:
                 suggestions.append(Suggestion(
                     title=f"Automate {req_type}",
                     description=f"You've performed '{req_type}' {count} times recently. Would you like me to create a workflow for this?",
-                    suggestion_type=SuggestionType.AUTOMATION,
+                    suggestion_type="automation",
                     confidence=min(count / 10, 0.9),
                     action_suggested="create_automation",
                 ))
@@ -102,25 +102,25 @@ class ProactiveAgent:
         suggestions = []
 
         # Check data size patterns
-        data_size = len(context.working_variables.get("data", []))
+        data_size = len(context.working_variables.get("data", []) if hasattr(context, 'working_variables') else [])
         if data_size > 10000:
             suggestions.append(Suggestion(
                 title="Optimize for large dataset",
                 description=f"Your dataset has {data_size} records. Consider using batched processing for better performance.",
-                suggestion_type=SuggestionType.OPTIMIZATION,
+                suggestion_type="optimization",
                 confidence=0.8,
                 action_suggested="use_batch_mode",
                 parameters={"batch_size": 1000},
             ))
 
         # Check export patterns
-        history = context.get("conversation_history", [])
+        history = context.conversation_history if hasattr(context, 'conversation_history') else []
         export_count = sum(1 for turn in history if "export" in turn.get("request", "").lower())
         if export_count > 0:
             suggestions.append(Suggestion(
                 title="Automate exports",
                 description=f"You've exported data {export_count} times. Want me to set up automatic export?",
-                suggestion_type=SuggestionType.OPTIMIZATION,
+                suggestion_type="optimization",
                 confidence=0.7,
                 action_suggested="setup_auto_export",
             ))
@@ -137,13 +137,14 @@ class ProactiveAgent:
             suggestions.append(Suggestion(
                 title="Low memory warning",
                 description=f"Only {memory_mb:.0f}MB memory available. Consider clearing old data or using smaller batches.",
-                suggestion_type=SuggestionType.WARNING,
+                suggestion_type="warning",
                 confidence=0.9,
                 action_suggested="free_memory",
             ))
 
         # Check for missing validations
-        last_requests = [turn.get("request", "") for turn in context.get("conversation_history", [])[-5:]]
+        history = context.conversation_history if hasattr(context, 'conversation_history') else []
+        last_requests = [turn.get("request", "") for turn in history[-5:]]
         has_generation = any("generate" in r.lower() for r in last_requests)
         has_validation = any("validate" in r.lower() for r in last_requests)
 
@@ -151,7 +152,7 @@ class ProactiveAgent:
             suggestions.append(Suggestion(
                 title="Consider validation",
                 description="You've been generating synthetic data. Would you like me to validate the quality?",
-                suggestion_type=SuggestionType.VALIDATION,
+                suggestion_type="validation",
                 confidence=0.6,
                 action_suggested="validate_data",
             ))
@@ -173,7 +174,7 @@ class ProactiveAgent:
         goals = []
 
         # Analyze patterns
-        history = context.get("conversation_history", [])
+        history = context.conversation_history if hasattr(context, 'conversation_history') else []
 
         # Goal 1: Learn from recent interactions
         if len(history) > 5:

@@ -175,54 +175,48 @@ class HierarchicalGoalManager:
             # Split into components
             if "generate" in desc_lower:
                 sub_goals.append(SubGoal(
-                    sub_goal_id=f"sub_{len(sub_goals) + 1}",
+                    goal_id=f"sub_{len(sub_goals) + 1}",
                     description="Generate synthetic data",
                     priority=0.8,
-                    status=TaskStatus.PENDING,
                     dependencies=[],
                 ))
 
             if "validate" in desc_lower:
                 sub_goals.append(SubGoal(
-                    sub_goal_id=f"sub_{len(sub_goals) + 1}",
+                    goal_id=f"sub_{len(sub_goals) + 1}",
                     description="Validate data quality",
                     priority=0.7,
-                    status=TaskStatus.PENDING,
                     dependencies=["sub_1"] if len(sub_goals) > 0 else [],
                 ))
 
             if "export" in desc_lower:
                 sub_goals.append(SubGoal(
-                    sub_goal_id=f"sub_{len(sub_goals) + 1}",
+                    goal_id=f"sub_{len(sub_goals) + 1}",
                     description="Export data to file",
                     priority=0.6,
-                    status=TaskStatus.PENDING,
                     dependencies=[f"sub_{len(sub_goals)}"],
                 ))
 
         else:
             # Single objective - create phases
             sub_goals.append(SubGoal(
-                sub_goal_id="sub_1",
+                goal_id="sub_1",
                 description="Preparation phase",
                 priority=0.9,
-                status=TaskStatus.PENDING,
                 dependencies=[],
             ))
 
             sub_goals.append(SubGoal(
-                sub_goal_id="sub_2",
+                goal_id="sub_2",
                 description="Execution phase",
                 priority=0.8,
-                status=TaskStatus.PENDING,
                 dependencies=["sub_1"],
             ))
 
             sub_goals.append(SubGoal(
-                sub_goal_id="sub_3",
+                goal_id="sub_3",
                 description="Completion phase",
                 priority=0.7,
-                status=TaskStatus.PENDING,
                 dependencies=["sub_2"],
             ))
 

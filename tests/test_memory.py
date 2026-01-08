@@ -466,14 +466,31 @@ class TestMemoryLayer:
     def test_strategy_learning_integration(self, temp_storage):
         """Test strategy learning through MemoryLayer."""
         from synth.agent.memory.layer import MemoryLayer
-        from synth.agent.models.core import Context
+        from synth.agent.models.core import Context, ParsedRequest, RequestType, EnvironmentContext
 
         memory = MemoryLayer(storage_path=temp_storage)
 
-        # Create mock context
+        # Create proper mock context with non-None values
+        request = ParsedRequest(
+            original_text="test request",
+            intent="test",
+            request_type=RequestType.DATA_GENERATION,
+            entities={},
+            constraints=[],
+            complexity=0.5,
+            confidence=0.9
+        )
+
+        environment = EnvironmentContext(
+            available_memory_mb=1000,
+            available_cpu_percent=50,
+            available_disk_gb=10,
+            active_sessions=1
+        )
+
         context = Context(
-            request=None,
-            environment=None,
+            request=request,
+            environment=environment,
             conversation_history=[],
             working_variables={}
         )
@@ -503,7 +520,7 @@ class TestMemoryLayer:
         error = Error(
             error_type="ValueError",
             message="Invalid value detected",
-            traceback="..."
+            stack_trace="..."
         )
 
         solution = Correction(
@@ -523,19 +540,40 @@ class TestMemoryLayer:
     def test_similar_situations_integration(self, temp_storage):
         """Test finding similar situations through MemoryLayer."""
         from synth.agent.memory.layer import MemoryLayer
-        from synth.agent.models.core import ParsedRequest
+        from synth.agent.models.core import ParsedRequest, RequestType
 
         memory = MemoryLayer(storage_path=temp_storage)
 
-        # Record some interactions - using simple dict instead of ParsedRequest
+        # Create ParsedRequest objects
+        request1 = ParsedRequest(
+            original_text="Generate 100 customer records with email and phone",
+            intent="generate data",
+            request_type=RequestType.DATA_GENERATION,
+            entities={"count": 100, "entity": "customer"},
+            constraints=[],
+            complexity=0.5,
+            confidence=0.9
+        )
+
+        request2 = ParsedRequest(
+            original_text="Create 50 user profiles",
+            intent="create profiles",
+            request_type=RequestType.DATA_GENERATION,
+            entities={"count": 50},
+            constraints=[],
+            complexity=0.4,
+            confidence=0.8
+        )
+
+        # Record interactions
         memory.record_interaction(
-            request="Generate 100 customer records with email and phone",
+            request=request1,
             response={"success": True},
             metadata={}
         )
 
         memory.record_interaction(
-            request="Create 50 user profiles",
+            request=request2,
             response={"success": True},
             metadata={}
         )
@@ -598,7 +636,7 @@ class TestMemoryIntegration:
     def test_memory_with_agent_request(self, temp_storage):
         """Test memory during agent request processing."""
         from synth.agent.memory.layer import MemoryLayer
-        from synth.agent.memory.types import ParsedRequest, RequestType
+        from synth.agent.models.core import ParsedRequest, RequestType
 
         memory = MemoryLayer(storage_path=temp_storage)
 
@@ -615,7 +653,7 @@ class TestMemoryIntegration:
 
         # Record interaction
         memory.record_interaction(
-            request=request.original_text,
+            request=request,  # Pass the ParsedRequest object, not a string
             response={
                 "success": True,
                 "records_generated": 100
