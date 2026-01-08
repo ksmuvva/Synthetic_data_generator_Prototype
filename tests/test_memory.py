@@ -495,7 +495,7 @@ class TestMemoryLayer:
     def test_error_learning_integration(self, temp_storage):
         """Test error learning through MemoryLayer."""
         from synth.agent.memory.layer import MemoryLayer
-        from synth.agent.memory.types import Error, Correction
+        from synth.agent.models.core import Error, Correction
 
         memory = MemoryLayer(storage_path=temp_storage)
 

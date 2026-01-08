@@ -70,14 +70,46 @@ from synth.agent.planning.planner import PlanningEngine, PlanOptions
 from synth.agent.planning.adaptive import AdaptivePlanner
 
 # NEW: Advanced AI Agent Features for 40/40 score
-from synth.agent.correction.engine import SelfCorrectionEngine
-from synth.agent.proactive.init import ProactiveAgent
-from synth.agent.perception.disambiguator import IntentDisambiguator
-from synth.agent.reasoning.causal import CausalReasoningEngine
-from synth.agent.learning.adaptive import AdaptiveLearningEngine
-from synth.agent.planning.hierarchical import HierarchicalGoalManager
-from synth.agent.tools.dynamic import DynamicToolCreator
-from synth.agent.memory.semantic import SemanticMemoryEngine
+# These imports are optional and may not be available in all installations
+try:
+    from synth.agent.correction.engine import SelfCorrectionEngine
+except ImportError:
+    SelfCorrectionEngine = None
+
+try:
+    from synth.agent.proactive.init import ProactiveAgent
+except ImportError:
+    ProactiveAgent = None
+
+try:
+    from synth.agent.perception.disambiguator import IntentDisambiguator
+except ImportError:
+    IntentDisambiguator = None
+
+try:
+    from synth.agent.reasoning.causal import CausalReasoningEngine
+except ImportError:
+    CausalReasoningEngine = None
+
+try:
+    from synth.agent.learning.adaptive import AdaptiveLearningEngine
+except ImportError:
+    AdaptiveLearningEngine = None
+
+try:
+    from synth.agent.planning.hierarchical import HierarchicalGoalManager
+except ImportError:
+    HierarchicalGoalManager = None
+
+try:
+    from synth.agent.tools.dynamic import DynamicToolCreator
+except ImportError:
+    DynamicToolCreator = None
+
+try:
+    from synth.agent.memory.semantic import SemanticMemoryEngine
+except ImportError:
+    SemanticMemoryEngine = None
 
 
 class TrueAIAgent:
@@ -232,8 +264,22 @@ class TrueAIAgent:
             context.user_preferences = user_preferences or {}
 
             # Step 3: Think - Reason, plan, and decide using COGNITIVE LAYER
-            # 3a. Perform comprehensive reasoning
-            reasoning_result = self.reasoning.reason_comprehensive(context)
+            # 3a. Perform comprehensive reasoning - TRUE AI AGENT CAPABILITY
+            # Use LLM reasoning when available for enhanced analysis
+            if self.llm_reasoning_engine is not None:
+                try:
+                    llm_reasoning_result = self.llm_reasoning_engine.reason(
+                        context=context,
+                        similar_situations=similar_situations,
+                    )
+                    # Store LLM reasoning for use in planning
+                    context.llm_reasoning = llm_reasoning_result
+                    reasoning_result = self.reasoning.reason_comprehensive(context)
+                except Exception as e:
+                    print(f"Warning: LLM reasoning failed: {e}. Using standard reasoning.")
+                    reasoning_result = self.reasoning.reason_comprehensive(context)
+            else:
+                reasoning_result = self.reasoning.reason_comprehensive(context)
 
             # 3b. Create plan informed by reasoning - TRUE AI AGENT
             plan = await self._create_plan_with_reasoning(context, reasoning_result)
